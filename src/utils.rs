@@ -215,6 +215,12 @@ impl Media {
 				&crosspost_parent_media["fallback_url"],
 				Some(&crosspost_parent_media["hls_url"]),
 			)
+		} else if data["post_hint"].as_str().unwrap_or("") == "rich:video" && data_preview["fallback_url"].is_string() {
+			(
+				if data_preview["is_gif"].as_bool().unwrap_or(false) { "gif" } else { "video" },
+				&data_preview["fallback_url"],
+				Some(&data_preview["hls_url"]),
+			)
 		} else if data["post_hint"].as_str().unwrap_or("") == "image" {
 			// Handle images, whether GIFs or pics
 			let preview = &data["preview"]["images"][0];
