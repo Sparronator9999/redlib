@@ -1,6 +1,7 @@
 use hyper::{Body, Request, Response};
 use serde_json::Value;
 use std::sync::LazyLock;
+use wreq::RequestBuilder;
 
 use crate::client::{proxy, CLIENT};
 use crate::server::RequestExt;
@@ -36,16 +37,16 @@ pub async fn handler(req: Request<Body>) -> Result<Response<Body>, String> {
 async fn fetch_video_url(redgifs_url: &str) -> Result<String, String> {
 	let video_id = redgifs_url
 		.split('/')
-		.last()
+		.next_back()
 		.and_then(|s| s.split('?').next())
 		.ok_or("Invalid RedGifs URL")?;
 
 	let token = get_token().await?;
 	let api_url = format!("https://api.redgifs.com/v2/gifs/{}?views=yes", video_id);
 
-	let req = create_request(&api_url, Some(&token))?;
-	let res = CLIENT.request(req).await.map_err(|e| e.to_string())?;
-	let body_bytes = hyper::body::to_bytes(res.into_body()).await.map_err(|e| e.to_string())?;
+	let req = create_request(&api_url, Some(&token));
+	let res = req.send().await.map_err(|e| e.to_string())?;
+	let body_bytes = res.bytes().await.map_err(|e| e.to_string())?;
 	let json: Value = serde_json::from_slice(&body_bytes).map_err(|e| e.to_string())?;
 
 	// Prefer HD, fallback to SD
@@ -72,9 +73,9 @@ async fn get_token() -> Result<String, String> {
 		}
 	}
 
-	let req = create_request("https://api.redgifs.com/v2/auth/temporary", None)?;
-	let res = CLIENT.request(req).await.map_err(|e| e.to_string())?;
-	let body_bytes = hyper::body::to_bytes(res.into_body()).await.map_err(|e| e.to_string())?;
+	let req = create_request("https://api.redgifs.com/v2/auth/temporary", None);
+	let res = req.send().await.map_err(|e| e.to_string())?;
+	let body_bytes = res.bytes().await.map_err(|e| e.to_string())?;
 	let json: Value = serde_json::from_slice(&body_bytes).map_err(|e| e.to_string())?;
 	let token = json["token"].as_str().map(String::from).ok_or_else(|| "No token in RedGifs response".to_string())?;
 
@@ -84,16 +85,16 @@ async fn get_token() -> Result<String, String> {
 	Ok(token)
 }
 
-fn create_request(url: &str, token: Option<&str>) -> Result<Request<Body>, String> {
-	let mut builder = hyper::Request::get(url)
+fn create_request(url: &str, token: Option<&str>) -> RequestBuilder {
+	let mut builder = CLIENT.get(url)
 		.header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 		.header("referer", "https://www.redgifs.com/")
 		.header("origin", "https://www.redgifs.com")
 		.header("content-type", "application/json");
-	
+
 	if let Some(t) = token {
 		builder = builder.header("Authorization", format!("Bearer {}", t));
 	}
-	
-	builder.body(Body::empty()).map_err(|e| e.to_string())
+
+	builder
 }
