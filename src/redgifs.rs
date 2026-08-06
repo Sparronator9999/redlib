@@ -77,7 +77,10 @@ async fn get_token() -> Result<String, String> {
 	let res = req.send().await.map_err(|e| e.to_string())?;
 	let body_bytes = res.bytes().await.map_err(|e| e.to_string())?;
 	let json: Value = serde_json::from_slice(&body_bytes).map_err(|e| e.to_string())?;
-	let token = json["token"].as_str().map(String::from).ok_or_else(|| "No token in RedGifs response".to_string())?;
+	let token = json["token"]
+		.as_str()
+		.map(String::from)
+		.ok_or_else(|| "No token in RedGifs response".to_string())?;
 
 	let mut cache = REDGIFS_TOKEN.lock().map_err(|_| "Lock error")?;
 	cache.0 = token.clone();
@@ -86,7 +89,8 @@ async fn get_token() -> Result<String, String> {
 }
 
 fn create_request(url: &str, token: Option<&str>) -> RequestBuilder {
-	let mut builder = CLIENT.get(url)
+	let mut builder = CLIENT
+		.get(url)
 		.header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 		.header("referer", "https://www.redgifs.com/")
 		.header("origin", "https://www.redgifs.com")

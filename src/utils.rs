@@ -2,6 +2,7 @@
 #![allow(clippy::cmp_owned)]
 
 use crate::config::{self, get_setting};
+use crate::redgifs;
 use crate::{client::json, server::RequestExt};
 use askama::Template;
 use clearurls::UrlCleaner;
@@ -11,7 +12,6 @@ use libflate::deflate::{Decoder, Encoder};
 use log::error;
 use regex::Regex;
 use revision::{revisioned, Error};
-use crate::redgifs;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -211,7 +211,11 @@ impl Media {
 			)
 		} else if crosspost_parent_media["fallback_url"].is_string() {
 			(
-				if crosspost_parent_media["is_gif"].as_bool().unwrap_or(false) { "gif" } else { "video" },
+				if crosspost_parent_media["is_gif"].as_bool().unwrap_or(false) {
+					"gif"
+				} else {
+					"video"
+				},
 				&crosspost_parent_media["fallback_url"],
 				Some(&crosspost_parent_media["hls_url"]),
 			)
@@ -775,7 +779,11 @@ pub fn deflate_decompress(i: Vec<u8>) -> Result<Vec<u8>, String> {
 
 /// Gets a `HashSet` of filters from the cookie in the given `Request`.
 pub fn get_filters(req: &Request<Body>) -> HashSet<String> {
-	setting(req, "filters").split('+').map(String::from).filter(|s| !s.is_empty()).collect::<HashSet<String>>()
+	setting(req, "filters")
+		.split('+')
+		.map(String::from)
+		.filter(|s| !s.is_empty())
+		.collect::<HashSet<String>>()
 }
 
 /// Filters a `Vec<Post>` by the given `HashSet` of filters (each filter being
@@ -978,8 +986,7 @@ pub fn setting(req: &Request<Body>, name: &str) -> String {
 	}
 	// The above two still come to this if there was no existing value
 	else {
-		req
-			.cookie(name)
+		req.cookie(name)
 			.unwrap_or_else(|| {
 				// If there is no cookie for this setting, try receiving a default from the config
 				if let Some(default) = get_setting(&format!("REDLIB_DEFAULT_{}", name.to_uppercase())) {
@@ -1021,7 +1028,8 @@ static REGEX_URL_WWW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://w
 static REGEX_URL_OLD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://old\.reddit\.com/(.*)").unwrap());
 static REGEX_URL_NP: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://np\.reddit\.com/(.*)").unwrap());
 static REGEX_URL_PLAIN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://reddit\.com/(.*)").unwrap());
-static REGEX_URL_VIDEOS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://v\.redd\.it/(.*)/(DASH|CMAF)_([0-9]{2,4}(\.mp4|$|\?source=fallback))").unwrap());
+static REGEX_URL_VIDEOS: LazyLock<Regex> =
+	LazyLock::new(|| Regex::new(r"https?://v\.redd\.it/(.*)/(DASH|CMAF)_([0-9]{2,4}(\.mp4|$|\?source=fallback))").unwrap());
 static REGEX_URL_VIDEOS_HLS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://v\.redd\.it/(.+)/(HLSPlaylist\.m3u8.*)$").unwrap());
 static REGEX_URL_IMAGES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://i\.redd\.it/(.*)").unwrap());
 static REGEX_URL_THUMBS_A: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://a\.thumbs\.redditmedia\.com/(.*)").unwrap());
@@ -1076,7 +1084,9 @@ pub fn format_url(url: &str) -> String {
 				"old.reddit.com" => capture(&REGEX_URL_OLD, "/", 1),
 				"np.reddit.com" => capture(&REGEX_URL_NP, "/", 1),
 				"reddit.com" => capture(&REGEX_URL_PLAIN, "/", 1),
-				"v.redd.it" => chain!(capture(&REGEX_URL_VIDEOS, "/vid/", 3), capture(&REGEX_URL_VIDEOS_HLS, "/hls/", 2)),
+				"v.redd.it" => {
+					chain!(capture(&REGEX_URL_VIDEOS, "/vid/", 3), capture(&REGEX_URL_VIDEOS_HLS, "/hls/", 2))
+				}
 				"i.redd.it" => capture(&REGEX_URL_IMAGES, "/img/", 1),
 				"a.thumbs.redditmedia.com" => capture(&REGEX_URL_THUMBS_A, "/thumb/a/", 1),
 				"b.thumbs.redditmedia.com" => capture(&REGEX_URL_THUMBS_B, "/thumb/b/", 1),
@@ -1201,7 +1211,8 @@ pub fn rewrite_urls(input_text: &str) -> String {
 // Match Giphy URLs in comment anchor tags, capturing the GIF ID
 // Handles: giphy.com/gifs/ID, media.giphy.com/media/ID, i.giphy.com/ID
 static GIPHY_EMBED_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-	Regex::new(r#"(?i)<a\s+href="https?://(?:www\.)?(?:giphy\.com/(?:gifs|clips)|media\.giphy\.com/media|i\.giphy\.com)/([a-z0-9]+)[^"]*"[^>]*>[^<]*</a>"#).unwrap()
+	Regex::new(r#"(?i)<a\s+href="https?://(?:www\.)?(?:giphy\.com/(?:gifs|clips)|media\.giphy\.com/media|i\.giphy\.com)/([a-z0-9]+)[^"]*"[^>]*>[^<]*</a>"#)
+		.unwrap()
 });
 
 /// Rewrite Giphy URLs in comment body to embedded video elements
@@ -1217,7 +1228,8 @@ fn rewrite_giphy_links(comment: &str) -> String {
 }
 
 // These links all follow a pattern of "https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/SUBREDDIT_ID/RANDOM_FILENAME.png"
-static REDDIT_EMOTE_LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/(.*)"#).unwrap());
+static REDDIT_EMOTE_LINK_REGEX: LazyLock<Regex> =
+	LazyLock::new(|| Regex::new(r#"https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/(.*)"#).unwrap());
 
 // These all follow a pattern of '"emote|SUBREDDIT_IT|NUMBER"', we want the number
 static REDDIT_EMOTE_ID_NUMBER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#""emote\|.*\|(.*)""#).unwrap());
@@ -1325,7 +1337,8 @@ pub fn time(created: f64) -> (String, String) {
 
 	// If the time difference is more than a month, show full date
 	let mut rel_time = if time_delta > Duration::days(30) {
-		time.format(format_description!("[month repr:short] [day] '[year repr:last_two]")).unwrap_or_default()
+		time.format(format_description!("[month repr:short] [day] '[year repr:last_two]"))
+			.unwrap_or_default()
 	// Otherwise, show relative date/time
 	} else if time_delta.whole_days() > 0 {
 		format!("{}d", time_delta.whole_days())
@@ -1345,8 +1358,7 @@ pub fn time(created: f64) -> (String, String) {
 
 	(
 		rel_time,
-		time
-			.format(format_description!("[month repr:short] [day] [year], [hour]:[minute]:[second] UTC"))
+		time.format(format_description!("[month repr:short] [day] [year], [hour]:[minute]:[second] UTC"))
 			.unwrap_or_default(),
 	)
 }
@@ -1389,7 +1401,11 @@ pub async fn error(req: Request<Body>, msg: &str) -> Result<Response<Body>, Stri
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(404).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	Ok(Response::builder()
+		.status(404)
+		.header("content-type", "text/html")
+		.body(body.into())
+		.unwrap_or_default())
 }
 
 /// Renders a generic info landing page.
@@ -1403,7 +1419,11 @@ pub async fn info(req: Request<Body>, msg: &str) -> Result<Response<Body>, Strin
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(200).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "text/html")
+		.body(body.into())
+		.unwrap_or_default())
 }
 
 /// Returns true if the config/env variable `REDLIB_SFW_ONLY` carries the
@@ -1474,7 +1494,11 @@ pub async fn nsfw_landing(req: Request<Body>, req_url: String) -> Result<Respons
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(403).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	Ok(Response::builder()
+		.status(403)
+		.header("content-type", "text/html")
+		.body(body.into())
+		.unwrap_or_default())
 }
 
 /// Returns the last (non-empty) segment of a path string
@@ -1499,7 +1523,11 @@ pub fn get_post_url(post: &Post) -> String {
 	}
 
 	if let Some(out_url) = &post.out_url {
-		return if out_url.starts_with("/r/") { to_absolute_url(out_url) } else { out_url.clone() };
+		return if out_url.starts_with("/r/") {
+			to_absolute_url(out_url)
+		} else {
+			out_url.clone()
+		};
 	}
 
 	to_absolute_url(&post.permalink)
@@ -1512,7 +1540,9 @@ pub fn to_absolute_url(relative_path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-	use super::{deflate_compress, deflate_decompress, format_num, format_url, render_bullet_lists, rewrite_emotes, rewrite_urls, url_path_basename, Post, Preferences};
+	use super::{
+		deflate_compress, deflate_decompress, format_num, format_url, render_bullet_lists, rewrite_emotes, rewrite_urls, url_path_basename, Post, Preferences,
+	};
 
 	#[test]
 	fn format_num_works() {
@@ -1568,7 +1598,10 @@ mod tests {
 			format_url("https://v.redd.it/foo/HLSPlaylist.m3u8?a=bar&v=1&f=sd"),
 			"/hls/foo/HLSPlaylist.m3u8?a=bar&v=1&f=sd"
 		);
-		assert_eq!(format_url("https://www.redditstatic.com/gold/awards/icon/icon.png"), "/static/gold/awards/icon/icon.png");
+		assert_eq!(
+			format_url("https://www.redditstatic.com/gold/awards/icon/icon.png"),
+			"/static/gold/awards/icon/icon.png"
+		);
 		assert_eq!(
 			format_url("https://www.redditstatic.com/marketplace-assets/v1/core/emotes/snoomoji_emotes/free_emotes_pack/shrug.gif"),
 			"/static/marketplace-assets/v1/core/emotes/snoomoji_emotes/free_emotes_pack/shrug.gif"
@@ -1647,8 +1680,7 @@ mod tests {
 
 	#[test]
 	fn test_rewriting_image_links() {
-		let input =
-			r#"<p><a href="https://preview.redd.it/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc">caption 1</a></p>"#;
+		let input = r#"<p><a href="https://preview.redd.it/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc">caption 1</a></p>"#;
 		let output = r#"<figure><a href="/preview/pre/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc"><img loading="lazy" src="/preview/pre/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc"></a><figcaption>caption 1</figcaption></figure>"#;
 		assert_eq!(rewrite_urls(input), output);
 	}

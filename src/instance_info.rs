@@ -33,7 +33,10 @@ pub async fn instance_info(req: Request<Body>) -> Result<Response<Body>, String>
 			}
 			.render()
 			.unwrap();
-			Response::builder().status(404).header("content-type", "text/html; charset=utf-8").body(error.into())
+			Response::builder()
+				.status(404)
+				.header("content-type", "text/html; charset=utf-8")
+				.body(error.into())
 		}
 	};
 	response.map_err(|err| format!("{err}"))
@@ -79,7 +82,10 @@ fn info_html(req: &Request<Body>) -> Result<Response<Body>, Error> {
 	}
 	.render()
 	.unwrap();
-	Response::builder().status(200).header("content-type", "text/html; charset=utf8").body(Body::from(message))
+	Response::builder()
+		.status(200)
+		.header("content-type", "text/html; charset=utf8")
+		.body(Body::from(message))
 }
 #[derive(Serialize, Deserialize, Default)]
 pub struct InstanceInfo {
@@ -163,33 +169,33 @@ impl InstanceInfo {
 				format!(
 					"Package name: {}\n
 				Crate version: {}\n
-                Git commit: {}\n
-                Deploy date: {}\n
-                Deploy timestamp: {}\n
-                Compile mode: {}\n
+				Git commit: {}\n
+				Deploy date: {}\n
+				Deploy timestamp: {}\n
+				Compile mode: {}\n
 				SFW only: {:?}\n
 				Pushshift frontend: {:?}\n
 				RSS enabled: {:?}\n
 				Full URL: {:?}\n
 				Remove default feeds: {:?}\n
-                Config:\n
-                    Banner: {:?}\n
-                    Hide awards: {:?}\n
-                    Hide score: {:?}\n
-                    Default theme: {:?}\n
-                    Default front page: {:?}\n
-                    Default layout: {:?}\n
-                    Default wide: {:?}\n
-                    Default comment sort: {:?}\n
-                    Default post sort: {:?}\n
+				Config:\n
+					Banner: {:?}\n
+					Hide awards: {:?}\n
+					Hide score: {:?}\n
+					Default theme: {:?}\n
+					Default front page: {:?}\n
+					Default layout: {:?}\n
+					Default wide: {:?}\n
+					Default comment sort: {:?}\n
+					Default post sort: {:?}\n
 					Default blur Spoiler: {:?}\n
-                    Default show NSFW: {:?}\n
-                    Default blur NSFW: {:?}\n
-                    Default use HLS: {:?}\n
-                    Default hide HLS notification: {:?}\n
+					Default show NSFW: {:?}\n
+					Default blur NSFW: {:?}\n
+					Default use HLS: {:?}\n
+					Default hide HLS notification: {:?}\n
 					Default clean urls: {:?}\n
-                    Default subscriptions: {:?}\n
-                    Default filters: {:?}\n",
+					Default subscriptions: {:?}\n
+					Default filters: {:?}\n",
 					self.package_name,
 					self.crate_version,
 					self.git_commit,

@@ -1,5 +1,7 @@
 #![allow(clippy::cmp_owned)]
-use crate::utils::{self, catch_random, clean_url, error, filter_posts, format_num, format_url, get_filters, param, redirect, setting, template, val, Post, Preferences};
+use crate::utils::{
+	self, catch_random, clean_url, error, filter_posts, format_num, format_url, get_filters, param, redirect, setting, template, val, Post, Preferences,
+};
 use crate::{
 	client::json,
 	server::RequestExt,
@@ -182,7 +184,9 @@ async fn search_subreddits(q: &str, typed: &str) -> Vec<Subreddit> {
 		.map(|subreddit| {
 			// For each subreddit from subreddit list
 			// Fetch subreddit icon either from the community_icon or icon_img value
-			let icon = subreddit["data"]["community_icon"].as_str().map_or_else(|| val(subreddit, "icon_img"), ToString::to_string);
+			let icon = subreddit["data"]["community_icon"]
+				.as_str()
+				.map_or_else(|| val(subreddit, "icon_img"), ToString::to_string);
 
 			Subreddit {
 				name: val(subreddit, "display_name"),

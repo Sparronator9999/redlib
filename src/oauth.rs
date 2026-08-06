@@ -185,7 +185,10 @@ pub async fn force_refresh_token() {
 		return;
 	}
 
-	trace!("Rolling over refresh token. Current rate limit: {}", OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst));
+	trace!(
+		"Rolling over refresh token. Current rate limit: {}",
+		OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)
+	);
 	let new_client = Oauth::new().await;
 	OAUTH_CLIENT.swap(new_client.into());
 	OAUTH_RATELIMIT_REMAINING.store(99, Ordering::SeqCst);
@@ -243,7 +246,11 @@ impl OauthBackend for MobileSpoofAuth {
 		// Send request
 		let resp = builder.json(&json).send().await?;
 
-		trace!("Received response with status {} and length {:?}", resp.status(), resp.headers().get("content-length"));
+		trace!(
+			"Received response with status {} and length {:?}",
+			resp.status(),
+			resp.headers().get("content-length")
+		);
 		trace!("OAuth headers: {:#?}", resp.headers());
 
 		// Parse headers - loid header _should_ be saved sent on subsequent token refreshes.
@@ -253,13 +260,15 @@ impl OauthBackend for MobileSpoofAuth {
 		// and really only as privacy-concerning as the OAuth token itself.
 		if let Some(header) = resp.headers().get("x-reddit-loid") {
 			let header_val: &wreq::header::HeaderValue = header;
-			self.additional_headers.insert("x-reddit-loid".to_owned(), header_val.to_str().unwrap().to_string());
+			self.additional_headers
+				.insert("x-reddit-loid".to_owned(), header_val.to_str().unwrap().to_string());
 		}
 
 		// Same with x-reddit-session
 		if let Some(header) = resp.headers().get("x-reddit-session") {
 			let header_val: &wreq::header::HeaderValue = header;
-			self.additional_headers.insert("x-reddit-session".to_owned(), header_val.to_str().unwrap().to_string());
+			self.additional_headers
+				.insert("x-reddit-session".to_owned(), header_val.to_str().unwrap().to_string());
 		}
 
 		trace!("Serializing response...");
@@ -349,14 +358,21 @@ impl OauthBackend for GenericWebAuth {
 		builder = builder.header("Connection", "keep-alive");
 
 		// Set up form body
-		let body_str = format!("grant_type=https%3A%2F%2Foauth.reddit.com%2Fgrants%2Finstalled_client&device_id={}", self.device_id);
+		let body_str = format!(
+			"grant_type=https%3A%2F%2Foauth.reddit.com%2Fgrants%2Finstalled_client&device_id={}",
+			self.device_id
+		);
 
 		trace!("Sending GenericWebAuth token request to {url}...");
 
 		// Send request
 		let resp: wreq::Response = builder.body(body_str).send().await?;
 
-		trace!("Received response with status {} and length {:?}", resp.status(), resp.headers().get("content-length"));
+		trace!(
+			"Received response with status {} and length {:?}",
+			resp.status(),
+			resp.headers().get("content-length")
+		);
 		trace!("GenericWebAuth headers: {:#?}", resp.headers());
 
 		// Parse headers - loid header _should_ be saved sent on subsequent token refreshes.
@@ -366,13 +382,15 @@ impl OauthBackend for GenericWebAuth {
 		// and really only as privacy-concerning as the OAuth token itself.
 		if let Some(header) = resp.headers().get("x-reddit-loid") {
 			let header_val: &wreq::header::HeaderValue = header;
-			self.additional_headers.insert("x-reddit-loid".to_owned(), header_val.to_str().unwrap().to_string());
+			self.additional_headers
+				.insert("x-reddit-loid".to_owned(), header_val.to_str().unwrap().to_string());
 		}
 
 		// Same with x-reddit-session
 		if let Some(header) = resp.headers().get("x-reddit-session") {
 			let header_val: &wreq::header::HeaderValue = header;
-			self.additional_headers.insert("x-reddit-session".to_owned(), header_val.to_str().unwrap().to_string());
+			self.additional_headers
+				.insert("x-reddit-session".to_owned(), header_val.to_str().unwrap().to_string());
 		}
 
 		trace!("Serializing GenericWebAuth response...");

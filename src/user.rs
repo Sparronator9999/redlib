@@ -124,7 +124,9 @@ async fn user(name: &str) -> Result<User, String> {
 			title: about("title"),
 			icon: format_url(&about("icon_img")),
 			karma: res["data"]["total_karma"].as_i64().unwrap_or(0),
-			created: created.format(format_description!("[month repr:short] [day] '[year repr:last_two]")).unwrap_or_default(),
+			created: created
+				.format(format_description!("[month repr:short] [day] '[year repr:last_two]"))
+				.unwrap_or_default(),
 			banner: about("banner_img"),
 			description: about("public_description"),
 			nsfw: res["data"]["subreddit"]["over_18"].as_bool().unwrap_or_default(),
@@ -178,7 +180,8 @@ pub async fn rss(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	// Create the HTTP response
 	let mut res = Response::new(Body::from(body));
-	res.headers_mut().insert(CONTENT_TYPE, hyper::header::HeaderValue::from_static("application/rss+xml"));
+	res.headers_mut()
+		.insert(CONTENT_TYPE, hyper::header::HeaderValue::from_static("application/rss+xml"));
 
 	Ok(res)
 }

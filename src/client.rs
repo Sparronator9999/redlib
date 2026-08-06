@@ -144,12 +144,12 @@ pub async fn canonical_path(path: String, tries: i8) -> Result<Option<String>, S
 		// Special condition rate limiting - https://github.com/redlib-org/redlib/issues/229
 		403 if policy_error => Err("Too many requests.".to_string()),
 
-		_ => Ok(
-			res
-				.headers()
-				.get(wreq_header::LOCATION)
-				.map(|val| percent_encode(val.as_bytes(), CONTROLS).to_string().trim_start_matches(REDDIT_URL_BASE).to_string()),
-		),
+		_ => Ok(res.headers().get(wreq_header::LOCATION).map(|val| {
+			percent_encode(val.as_bytes(), CONTROLS)
+				.to_string()
+				.trim_start_matches(REDDIT_URL_BASE)
+				.to_string()
+		})),
 	}
 }
 
@@ -229,7 +229,14 @@ fn reddit_short_head(path: String, quarantine: bool, base_path: &'static str, ho
 /// Makes a request to Reddit. If `redirect` is `true`, `request_with_redirect`
 /// will recurse on the URL that Reddit provides in the Location HTTP header
 /// in its response.
-fn request(method: &'static Method, path: String, redirect: bool, quarantine: bool, base_path: &'static str, host: &'static str) -> Boxed<Result<WreqResponse, String>> {
+fn request(
+	method: &'static Method,
+	path: String,
+	redirect: bool,
+	quarantine: bool,
+	base_path: &'static str,
+	host: &'static str,
+) -> Boxed<Result<WreqResponse, String>> {
 	// Build Reddit URL from path.
 	let url = format!("{base_path}{path}");
 
@@ -342,9 +349,18 @@ pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 			let status = response.status();
 
 			let reset: Option<String> = if let (Some(remaining), Some(reset), Some(used)) = (
-				response.headers().get("x-ratelimit-remaining").and_then(|val| val.to_str().ok().map(|s| s.to_string())),
-				response.headers().get("x-ratelimit-reset").and_then(|val| val.to_str().ok().map(|s| s.to_string())),
-				response.headers().get("x-ratelimit-used").and_then(|val| val.to_str().ok().map(|s| s.to_string())),
+				response
+					.headers()
+					.get("x-ratelimit-remaining")
+					.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
+				response
+					.headers()
+					.get("x-ratelimit-reset")
+					.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
+				response
+					.headers()
+					.get("x-ratelimit-used")
+					.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
 			) {
 				trace!(
 					"Ratelimit remaining: Header says {remaining}, we have {current_rate_limit}. Resets in {reset}. Rollover: {}. Ratelimit used: {used}",
@@ -460,7 +476,10 @@ pub async fn rate_limit_check() -> Result<(), String> {
 	self_check("reddit").await?;
 	// This will reduce the rate limit to 99. Assert this check.
 	if OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst) != 99 {
-		return Err(format!("Rate limit check 1 failed: expected 99, got {}", OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)));
+		return Err(format!(
+			"Rate limit check 1 failed: expected 99, got {}",
+			OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)
+		));
 	}
 	// Now, we switch out the OAuth client.
 	// This checks for the IP rate limit association.
@@ -469,7 +488,10 @@ pub async fn rate_limit_check() -> Result<(), String> {
 	self_check("rust").await?;
 	// Again, assert the rate limit check.
 	if OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst) != 99 {
-		return Err(format!("Rate limit check 2 failed: expected 99, got {}", OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)));
+		return Err(format!(
+			"Rate limit check 2 failed: expected 99, got {}",
+			OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)
+		));
 	}
 
 	Ok(())

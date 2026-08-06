@@ -384,7 +384,9 @@ impl Server {
 		});
 
 		// Build SocketAddr from provided address
-		let address = &addr.parse().unwrap_or_else(|_| panic!("Cannot parse {addr} as address (example format: 0.0.0.0:8080)"));
+		let address = &addr
+			.parse()
+			.unwrap_or_else(|_| panic!("Cannot parse {addr} as address (example format: 0.0.0.0:8080)"));
 
 		// Bind server to address specified above. Gracefully shut down if CTRL+C is pressed
 		let server = HyperServer::bind(address).serve(make_svc).with_graceful_shutdown(async {
@@ -395,7 +397,8 @@ impl Server {
 			#[cfg(unix)]
 			{
 				// Wait for CTRL+C or SIGTERM signals
-				let mut signal_terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("Failed to install SIGTERM signal handler");
+				let mut signal_terminate =
+					tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("Failed to install SIGTERM signal handler");
 				tokio::select! {
 					_ = tokio::signal::ctrl_c() => (),
 					_ = signal_terminate.recv() => ()
@@ -822,8 +825,7 @@ mod tests {
 			// If the content was compressed, we expect the Content-Encoding
 			// header to be modified.
 			assert_eq!(
-				res
-					.headers()
+				res.headers()
 					.get(header::CONTENT_ENCODING)
 					.unwrap_or_else(|| panic!("missing content-encoding header"))
 					.to_str()
