@@ -55,7 +55,7 @@
 			{% endif %}
 
 			{% if all_posts_filtered %}
-				 <center>(All content on this page has been filtered)</center>
+				<center>(All content on this page has been filtered)</center>
 			{% else %}
 			<div id="posts">
 			{% for post in posts %}
@@ -132,9 +132,9 @@
 						</div>
 						{% if crate::utils::enable_rss() %}
 						<div id="sub_rss">
-                            <a href="/r/{{ sub.name }}.rss" title="RSS feed for r/{{ sub.name }}">
-                                <button class="subscribe">RSS feed</button >
-                            </a>
+							<a href="/r/{{ sub.name }}.rss" title="RSS feed for r/{{ sub.name }}">
+								<button class="subscribe">RSS feed</button >
+							</a>
 						</div>
 						{% endif %}
 				</div>

@@ -1,0 +1,15 @@
+[*]
+indent_style = tab
+indent_size = 4
+insert_final_newline = true
+tab_width = 4
+trim_trailing_whitespace = true
+
+[*.{json,md,nix,plist,xml,yml,yaml}]
+indent_style = space
+
+[*.{json,nix,yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

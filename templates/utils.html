@@ -147,12 +147,12 @@
 		{% call poll(post) %}
 	</div>
 	<div class="post_score" title="{{ post.score.1 }}">
-    {% if prefs.hide_score != "on" %}
-    {{ post.score.0 }}
-    {% else %}
-    &#x2022;
-    {% endif %}
-    <span class="label"> Upvotes</span></div>
+	{% if prefs.hide_score != "on" %}
+	{{ post.score.0 }}
+	{% else %}
+	&#x2022;
+	{% endif %}
+	<span class="label"> Upvotes</span></div>
 	<div class="post_footer">
 		<ul id="post_links">
 			<li>
@@ -246,7 +246,7 @@
 	{% else if (prefs.layout.is_empty() || prefs.layout == "card") && (post.post_type == "gif" || post.post_type == "video") %}
 	{% if prefs.use_hls == "on" && !post.media.alt_url.is_empty() %}
 	<div class="post_media_content">
-        <video class="post_media_video short{% if prefs.autoplay_videos == "on" %} hls_autoplay{% endif %}" {% if post.media.width > 0 && post.media.height > 0 %}width="{{ post.media.width }}" height="{{ post.media.height }}"{% endif %} poster="{{ post.media.poster }}" controls preload="none">
+		<video class="post_media_video short{% if prefs.autoplay_videos == "on" %} hls_autoplay{% endif %}" {% if post.media.width > 0 && post.media.height > 0 %}width="{{ post.media.width }}" height="{{ post.media.height }}"{% endif %} poster="{{ post.media.poster }}" controls preload="none">
 			<source src="{{ post.media.alt_url }}" type="application/vnd.apple.mpegurl" />
 			<source src="{{ post.media.url }}" type="video/mp4" />
 		</video>
@@ -273,12 +273,12 @@
 	</a>
 	{% endif %}
 	<div class="post_score" title="{{ post.score.1 }}">
-    {% if prefs.hide_score != "on" %}
-    {{ post.score.0 }}
-    {% else %}
-    &#x2022;
-    {% endif %}
-    <span class="label"> Upvotes</span></div>
+	{% if prefs.hide_score != "on" %}
+	{{ post.score.0 }}
+	{% else %}
+	&#x2022;
+	{% endif %}
+	<span class="label"> Upvotes</span></div>
 	<div class="post_body post_preview">
 		{{ post.body|safe }}
 	</div>

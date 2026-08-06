@@ -14,6 +14,6 @@
 }
 
 html:has(> .light) {
-  /* Hint color theme to browser for scrollbar */
-  color-scheme: light;
+	/* Hint color theme to browser for scrollbar */
+	color-scheme: light;
 }
