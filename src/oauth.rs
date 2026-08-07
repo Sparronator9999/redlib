@@ -446,7 +446,7 @@ impl Device {
 
 		// Generate random user-agent
 		let android_app_version = choose(ANDROID_APP_VERSION_LIST).to_string();
-		let android_version = fastrand::u8(9..=14);
+		let android_version = fastrand::u8(10..=16);
 
 		let android_user_agent = format!("Reddit/{android_app_version}/Android {android_version}");
 
