@@ -4,7 +4,7 @@
 {% block title %}Redlib: search results - {{ params.q }}{% endblock %}
 
 {% block subscriptions %}
-	{% call utils::sub_list("") %}
+	{{ utils::sub_list("") }}
 {% endblock %}
 
 {% block content %}
@@ -21,11 +21,11 @@
 					{% endif %}
 					{% if params.typed == "sr_user" %}<input type="hidden" name="type" value="sr_user">{% endif %}
 					<select id="sort_options" name="sort" title="Sort results by">
-						{% call utils::options(params.sort, ["relevance", "hot", "top", "new", "comments"], "") %}
+						{{ utils::options(params.sort, ["relevance", "hot", "top", "new", "comments"], "") }}
 					</select>
 					{% if params.sort != "new" %}
 					<select id="timeframe" name="t" title="Timeframe">
-						{% call utils::options(params.t, ["hour", "day", "week", "month", "year", "all"], "all") %}
+						{{ utils::options(params.t, ["hour", "day", "week", "month", "year", "all"], "all") }}
 					</select>
 					{% endif %}
 				</div>
@@ -33,8 +33,8 @@
 
 			<button id="sort_submit" class="submit">
 				<svg width="15" viewBox="0 0 110 100" fill="none" stroke-width="10" stroke-linecap="round">
-					<path d="M20 50 H100" />
-					<path d="M75 15 L100 50 L75 85" />
+					<path d="M20 50 H100"/>
+					<path d="M75 15 L100 50 L75 85"/>
 					&rarr;
 				</svg>
 			</button>
@@ -82,16 +82,16 @@
 			{% for post in posts %}
 				{% if post.flags.nsfw && prefs.show_nsfw != "on" %}
 				{% else if !post.title.is_empty() %}
-					{% call utils::post_in_list(post) %}
+					{{ utils::post_in_list(post) }}
 				{% else %}
 					<div class="comment">
 						<div class="comment_left">
 							<p class="comment_score" title="{{ post.score.1 }}">
-							{% if prefs.hide_score != "on" %}
-							{{ post.score.0 }}
-							{% else %}
-							&#x2022;
-							{% endif %}
+								{% if prefs.hide_score != "on" %}
+								{{ post.score.0 }}
+								{% else %}
+								&#x2022;
+								{% endif %}
 							</p>
 							<div class="line"></div>
 						</div>

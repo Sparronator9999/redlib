@@ -13,14 +13,14 @@
 		This post is NSFW!
 		{% endif %}
 	</h1>
-	<br />
+	<br/>
 
 	<p>
 		{% if crate::utils::sfw_only() %}
 		This instance of Redlib is SFW-only.</p>
 		{% else %}
-		Enable "Show NSFW posts" in <a href="/settings">settings</a> to view this {% if res_type == crate::utils::ResourceType::Subreddit %}subreddit{% else if res_type == crate::utils::ResourceType::User %}user's posts or comments{% else if res_type == crate::utils::ResourceType::Post %}post{% endif %}. <br>
-		{% if res_type == crate::utils::ResourceType::Post %} You can also quickly bypass this gate and view the post by clicking on this <a href="/settings/update/?show_nsfw=on&redirect={{url}}">link</a>.{% endif %}
+		Enable "Show NSFW posts" in <a href="/settings">settings</a> to view this {% if res_type == crate::utils::ResourceType::Subreddit %}subreddit{% else if res_type == crate::utils::ResourceType::User %}user's posts or comments{% else if res_type == crate::utils::ResourceType::Post %}post{% endif %}. <br/>
+		{% if res_type == crate::utils::ResourceType::Post %} You can also quickly bypass this gate and view the post by clicking on <a href="/settings/update/?show_nsfw=on&redirect={{url}}">this link</a>.{% endif %}
 		{% endif %}
 	</p>
 </div>

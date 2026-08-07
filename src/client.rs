@@ -3,7 +3,7 @@ use crate::oauth::{force_refresh_token, token_daemon, Oauth, OauthBackendImpl};
 use crate::server::RequestExt;
 use crate::utils::{format_url, Post};
 use arc_swap::ArcSwap;
-use cached::proc_macro::cached;
+use cached::macros::cached;
 use futures_lite::future::block_on;
 use futures_lite::{future::Boxed, FutureExt};
 use hyper::{body::Buf, header, Body, Request as HyperRequest, Response as HyperResponse};
@@ -15,8 +15,8 @@ use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU16};
 use std::sync::LazyLock;
 use wreq::redirect::Policy;
-use wreq::{header as wreq_header, Client as WreqClient, EmulationFactory, Method, Response as WreqResponse};
-use wreq_util::{Emulation, EmulationOS, EmulationOption};
+use wreq::{header as wreq_header, Client as WreqClient, IntoEmulation, Method, Response as WreqResponse};
+use wreq_util::{Emulation, Platform, Profile};
 
 const REDDIT_URL_BASE: &str = "https://oauth.reddit.com";
 const REDDIT_URL_BASE_HOST: &str = "oauth.reddit.com";
@@ -48,15 +48,15 @@ pub fn build_client() -> WreqClient {
 	// Keeping this list short to aid in privacy.
 	// The more emulations, the more unique a fingerprint each instance has.
 	// But some emulations should increase evasiveness.
-	let emulation = [Emulation::Chrome145, Emulation::Firefox147];
-	let emulation_os = [EmulationOS::Android, EmulationOS::Windows];
+	let emulation = [Profile::Chrome145, Profile::Firefox147];
+	let emulation_os = [Platform::Android, Platform::Windows];
 
 	let rand = fastrand::usize(..);
-	let emulation = EmulationOption::builder()
-		.emulation(emulation[rand % emulation.len()])
-		.emulation_os(emulation_os[rand % emulation_os.len()])
+	let emulation = Emulation::builder()
+		.profile(emulation[rand % emulation.len()])
+		.platform(emulation_os[rand % emulation_os.len()])
 		.build()
-		.emulation();
+		.into_emulation();
 
 	info!("Building Wreq client with random emulation {:?}", emulation);
 	WreqClient::builder()
@@ -78,7 +78,7 @@ pub fn build_client() -> WreqClient {
 /// value is `Ok(None)` if Reddit responded with a 3xx, but did not provide a
 /// `Location` header. An `Err(String)` is returned if Reddit responds with a
 /// 429, or if we were unable to decode the value in the `Location` header.
-#[cached(size = 1024, time = 600, result = true)]
+#[cached(max_size = 1024, ttl = 600)]
 #[async_recursion::async_recursion]
 pub async fn canonical_path(path: String, tries: i8) -> Result<Option<String>, String> {
 	if tries == 0 {
@@ -326,7 +326,7 @@ fn request(
 }
 
 /// Make a request to a Reddit API and parse the JSON response
-#[cached(size = 100, time = 30, result = true)]
+#[cached(max_size = 100, ttl = 30)]
 pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 	// Closure to quickly build errors
 	let err = |msg: &str, e: String, path: String| -> Result<Value, String> {

@@ -54,7 +54,7 @@ fn info_json() -> Result<Response<Body>, Error> {
 }
 
 fn info_yaml() -> Result<Response<Body>, Error> {
-	if let Ok(body) = serde_yaml::to_string(&*INSTANCE_INFO) {
+	if let Ok(body) = yaml_serde::to_string(&*INSTANCE_INFO) {
 		// We can use `application/yaml` as media type, though there is no guarantee
 		// that browsers will honor it. But we'll do it anyway. See:
 		// https://github.com/ietf-wg-httpapi/mediatypes/blob/main/draft-ietf-httpapi-yaml-mediatypes.md#media-type-applicationyaml-application-yaml

@@ -4,11 +4,11 @@
 {% block title %}Redlib Settings{% endblock %}
 
 {% block subscriptions %}
-{% call utils::sub_list("") %}
+{{ utils::sub_list("") }}
 {% endblock %}
 
 {% block search %}
-{% call utils::search("".to_owned(), "") %}
+{{ utils::search("".to_owned(), "") }}
 {% endblock %}
 
 {% block content %}
@@ -20,7 +20,7 @@
 				<div class="prefs-group">
 					<label for="theme">Theme:</label>
 					<select name="theme" id="theme">
-						{% call utils::options(prefs.theme, prefs.available_themes, "system") %}
+						{{ utils::options(prefs.theme, prefs.available_themes, "system") }}
 					</select>
 				</div>
 			</fieldset>
@@ -35,13 +35,13 @@
 				<div class="prefs-group">
 					<label for="front_page">Front page:</label>
 					<select name="front_page" id="front_page">
-						{% call utils::options(prefs.front_page, ["default", "popular", "all"], "default") %}
+						{{ utils::options(prefs.front_page, ["default", "popular", "all"], "default") }}
 					</select>
 				</div>
 				<div class="prefs-group">
 					<label for="layout">Layout:</label>
 					<select name="layout" id="layout">
-						{% call utils::options(prefs.layout, ["card", "clean", "compact"], "card") %}
+						{{ utils::options(prefs.layout, ["card", "clean", "compact"], "card") }}
 					</select>
 				</div>
 				<div class="prefs-group">
@@ -55,21 +55,19 @@
 				<div class="prefs-group">
 					<label for="video_quality">Video quality:</label>
 					<select name="video_quality" id="video_quality">
-						{% call utils::options(prefs.video_quality, ["best", "medium", "worst"], "best") %}
+						{{ utils::options(prefs.video_quality, ["best", "medium", "worst"], "best") }}
 					</select>
 				</div>
 				<div class="prefs-group">
 					<label for="post_sort" title="Applies only to subreddit feeds">Default subreddit post sort:</label>
 					<select name="post_sort">
-						{% call utils::options(prefs.post_sort, ["hot", "new", "top", "rising", "controversial"], "hot")
-						%}
+						{{ utils::options(prefs.post_sort, ["hot", "new", "top", "rising", "controversial"], "hot") }}
 					</select>
 				</div>
 				<div class="prefs-group">
 					<label for="comment_sort">Default comment sort:</label>
 					<select name="comment_sort" id="comment_sort">
-						{% call utils::options(prefs.comment_sort, ["confidence", "top", "new", "controversial", "old"],
-						"confidence") %}
+						{{ utils::options(prefs.comment_sort, ["confidence", "top", "new", "controversial", "old"], "confidence") }}
 					</select>
 				</div>
 				<div class="prefs-group">
@@ -160,7 +158,7 @@
 		<legend>Subscribed Feeds</legend>
 		{% for sub in prefs.subscriptions %}
 		<div>
-			{% let feed -%}
+			{% decl feed %}
 			{% if sub.starts_with("u_") -%}{% let feed = format!("u/{}", &sub[2..]) -%}{% else -%}{% let feed =
 			format!("r/{}", sub) -%}{% endif -%}
 			<a href="/{{ feed }}">{{ feed }}</a>
@@ -176,7 +174,7 @@
 		<legend>Filtered Feeds</legend>
 		{% for sub in prefs.filters %}
 		<div>
-			{% let feed -%}
+			{% decl feed %}
 			{% if sub.starts_with("u_") -%}{% let feed = format!("u/{}", &sub[2..]) -%}{% else -%}{% let feed =
 			format!("r/{}", sub) -%}{% endif -%}
 			<a href="/{{ feed }}">{{ feed }}</a>

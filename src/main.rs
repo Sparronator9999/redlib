@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::cmp_owned)]
 
-use cached::proc_macro::cached;
+use cached::macros::cached;
 use clap::{Arg, ArgAction, Command};
 use std::sync::LazyLock;
 
@@ -450,7 +450,7 @@ pub async fn proxy_commit_info() -> Result<Response<Body>, String> {
 	)
 }
 
-#[cached(time = 600)]
+#[cached(ttl = 600)]
 async fn fetch_commit_info() -> String {
 	let url = "https://github.com/redlib-org/redlib/commits/main.atom";
 
@@ -467,7 +467,7 @@ pub async fn proxy_instances() -> Result<Response<Body>, String> {
 	)
 }
 
-#[cached(time = 600)]
+#[cached(ttl = 600)]
 async fn fetch_instances() -> String {
 	let url = "https://raw.githubusercontent.com/redlib-org/redlib-instances/refs/heads/main/instances.json";
 

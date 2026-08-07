@@ -7,11 +7,11 @@
 {% endblock %}
 
 {% block search %}
-	{% call utils::search(["/r/", sub.as_str()].concat(), "") %}
+	{{ utils::search(["/r/", sub.as_str()].concat(), "") }}
 {% endblock %}
 
 {% block subscriptions %}
-	{% call utils::sub_list(sub.as_str()) %}
+	{{ utils::sub_list(sub.as_str()) }}
 {% endblock %}
 
 {% block body %}

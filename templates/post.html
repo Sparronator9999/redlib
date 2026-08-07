@@ -10,12 +10,12 @@
 {% endblock %}
 
 {% block search %}
-	{% call utils::search(["/r/", post.community.as_str()].concat(), "") %}
+	{{ utils::search(["/r/", post.community.as_str()].concat(), "") }}
 {% endblock %}
 
 {% block root %}/r/{{ post.community }}{% endblock %}{% block location %}r/{{ post.community }}{% endblock %}
 {% block head %}
-	{% call super() %}
+	{{ super() }}
 	<!-- Meta Tags -->
 	<meta name="author" content="u/{{ post.author.name }}">
 	<meta name="title" content="{{ post.title }} - r/{{ post.community }}">
@@ -44,24 +44,24 @@
 {% endblock %}
 
 {% block subscriptions %}
-	{% call utils::sub_list(post.community.as_str()) %}
+	{{ utils::sub_list(post.community.as_str()) }}
 {% endblock %}
 
 {% block content %}
 	<div id="column_one">
-		{% call utils::post(post) %}
+		{{ utils::post(post) }}
 
 		<!-- SORT FORM -->
 		<div id="commentQueryForms">
 			<form id="sort">
 				<p id="comment_count">{{post.comments.0}} {% if post.comments.0 == "1" %}comment{% else %}comments{% endif %} <span id="sorted_by">sorted by </span></p>
 				<select name="sort" title="Sort comments by" id="commentSortSelect">
-					{% call utils::options(sort, ["confidence", "top", "new", "controversial", "old"], "confidence") %}
+					{{ utils::options(sort, ["confidence", "top", "new", "controversial", "old"], "confidence") }}
 				</select>
 				<button id="sort_submit" class="submit">
 					<svg width="15" viewBox="0 0 110 100" fill="none" stroke-width="10" stroke-linecap="round">
-						<path d="M20 50 H100" />
-						<path d="M75 15 L100 50 L75 85" />
+						<path d="M20 50 H100"/>
+						<path d="M75 15 L100 50 L75 85"/>
 						&rarr;
 					</svg>
 				</button>
@@ -73,11 +73,11 @@
 			</form>
 		</div>
 
+		{% if comment_query != "" %}
 		<div>
-			{% if comment_query != "" %}
 			Comments containing "{{ comment_query }}"&nbsp;|&nbsp;<a id="allCommentsLink" href="{{ url_without_query }}">All comments</a>
-			{% endif %}
 		</div>
+		{% endif %}
 
 		<!-- COMMENTS -->
 		{% for c in comments -%}
@@ -92,6 +92,5 @@
 			{{ c.render().unwrap()|safe }}
 		</div>
 		{%- endfor %}
-
 	</div>
 {% endblock %}

@@ -5,7 +5,7 @@
 	<head>
 		{% block head %}
 		<title>{% block title %}Redlib{% endblock %}</title>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 		<meta name="description" content="View on Redlib, an alternative private front-end to Reddit.">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		{% if crate::utils::disable_indexing() %}
@@ -53,7 +53,7 @@
 					</svg>
 				</a>
 				{% if prefs.disable_visit_reddit_confirmation != "on" %}
-					{% call utils::visit_reddit_confirmation(url) %}
+					{{ utils::visit_reddit_confirmation(url) }}
 				{% endif %}
 				<a id="settings_link" href="/settings">
 					<span>settings</span>
