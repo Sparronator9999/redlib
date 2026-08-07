@@ -169,15 +169,15 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 		match Post::fetch(&path, quarantined).await {
 			Ok((mut posts, after)) => {
 				let clean_urls = setting(&req, "clean_urls");
-				if clean_urls == "on".to_owned() {
+				if clean_urls == "on" {
 					posts.iter_mut().for_each(|post| post.media.url = clean_url(post.media.url.clone()));
 				}
 				let (_, all_posts_filtered) = filter_posts(&mut posts, &filters);
 				let no_posts = posts.is_empty();
 				let all_posts_hidden_nsfw = !no_posts && (posts.iter().all(|p| p.flags.nsfw) && setting(&req, "show_nsfw") != "on");
 				if sort == "new" {
-					posts.sort_by(|a, b| b.created_ts.cmp(&a.created_ts));
-					posts.sort_by(|a, b| b.flags.stickied.cmp(&a.flags.stickied));
+					posts.sort_by_key(|b| std::cmp::Reverse(b.created_ts));
+					posts.sort_by_key(|b| std::cmp::Reverse(b.flags.stickied));
 				}
 				Ok(template(&SubredditTemplate {
 					sub,
@@ -512,11 +512,6 @@ pub async fn sidebar(req: Request<Body>) -> Result<Response<Body>, String> {
 		// If success, receive JSON in response
 		Ok(response) => Ok(template(&WikiTemplate {
 			wiki: rewrite_urls(&val(&response, "description_html")),
-			// wiki: format!(
-			// 	"{}<hr><h1>Moderators</h1><br><ul>{}</ul>",
-			// 	rewrite_urls(&val(&response, "description_html"),
-			// 	moderators(&sub, quarantined).await.unwrap_or(vec!["Could not fetch moderators".to_string()]).join(""),
-			// ),
 			sub,
 			page: "Sidebar".to_string(),
 			prefs: Preferences::new(&req),
@@ -531,40 +526,6 @@ pub async fn sidebar(req: Request<Body>) -> Result<Response<Body>, String> {
 		}
 	}
 }
-
-// pub async fn moderators(sub: &str, quarantined: bool) -> Result<Vec<String>, String> {
-// 	// Retrieve and format the html for the moderators list
-// 	Ok(
-// 		moderators_list(sub, quarantined)
-// 			.await?
-// 			.iter()
-// 			.map(|m| format!("<li><a style=\"color: var(--accent)\" href=\"/u/{name}\">{name}</a></li>", name = m))
-// 			.collect(),
-// 	)
-// }
-
-// async fn moderators_list(sub: &str, quarantined: bool) -> Result<Vec<String>, String> {
-// 	// Build the moderator list URL
-// 	let path: String = format!("/r/{}/about/moderators.json?raw_json=1", sub);
-
-// 	// Retrieve response
-// 	json(path, quarantined).await.map(|response| {
-// 		// Traverse json tree and format into list of strings
-// 		response["data"]["children"]
-// 			.as_array()
-// 			.unwrap_or(&Vec::new())
-// 			.iter()
-// 			.filter_map(|moderator| {
-// 				let name = moderator["name"].as_str().unwrap_or_default();
-// 				if name.is_empty() {
-// 					None
-// 				} else {
-// 					Some(name.to_string())
-// 				}
-// 			})
-// 			.collect::<Vec<_>>()
-// 	})
-// }
 
 // SUBREDDIT
 async fn subreddit(sub: &str, quarantined: bool) -> Result<Subreddit, String> {
@@ -591,7 +552,6 @@ async fn subreddit(sub: &str, quarantined: bool) -> Result<Subreddit, String> {
 		title: val(&res, "title"),
 		description: val(&res, "public_description"),
 		info: rewrite_urls(&val(&res, "description_html")),
-		// moderators: moderators_list(sub, quarantined).await.unwrap_or_default(),
 		icon: format_url(&icon),
 		members: format_num(members),
 		active: format_num(active),
@@ -663,7 +623,7 @@ pub async fn rss(req: Request<Body>) -> Result<Response<Body>, String> {
 
 // Set enclosure image for RSS feed item
 fn apply_enclosure(item: &mut Item, post: &Post) {
-	item.set_enclosure(get_rss_image(&post));
+	item.set_enclosure(get_rss_image(post));
 
 	// Embed the number of gallery images in description and content since
 	// only the first image in the gallery is used for the enclosure
@@ -684,7 +644,7 @@ fn apply_enclosure(item: &mut Item, post: &Post) {
 fn get_rss_image(post: &Post) -> Option<Enclosure> {
 	let image_url = match post.post_type.as_str() {
 		"image" => Some(post.media.url.clone()),
-		"gallery" => post.gallery.get(0).and_then(|media| decode_html(&media.url).ok()),
+		"gallery" => post.gallery.first().and_then(|media| decode_html(&media.url).ok()),
 		"gif" | "video" => decode_html(&post.media.poster).ok(),
 		_ => None,
 	};

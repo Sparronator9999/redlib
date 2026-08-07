@@ -118,9 +118,9 @@ impl InstanceInfo {
 		let convert = |o: &Option<String>| -> String { o.clone().unwrap_or_else(|| "<span class=\"unset\"><i>Unset</i></span>".to_owned()) };
 		if let Some(banner) = &self.config.banner {
 			container.add_header(3, "Instance banner");
-			container.add_raw("<br />");
+			container.add_raw("<br/>");
 			container.add_paragraph(banner);
-			container.add_raw("<br />");
+			container.add_raw("<br/>");
 		}
 		container.add_table(
 			Table::from([
@@ -139,7 +139,7 @@ impl InstanceInfo {
 			])
 			.with_header_row(["Settings"]),
 		);
-		container.add_raw("<br />");
+		container.add_raw("<br/>");
 		container.add_table(
 			Table::from([
 				["Hide awards", &convert(&self.config.default_hide_awards)],

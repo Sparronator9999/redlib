@@ -220,12 +220,6 @@ fn reddit_short_head(path: String, quarantine: bool, base_path: &'static str, ho
 	request(&Method::HEAD, path, false, quarantine, base_path, host)
 }
 
-// /// Makes a HEAD request to Reddit at `path`. This will not follow redirects.
-// fn reddit_head(path: String, quarantine: bool) -> Boxed<Result<Response<Body>, String>> {
-// 	request(&Method::HEAD, path, false, quarantine, false)
-// }
-// Unused - reddit_head is only ever called in the context of a short URL
-
 /// Makes a request to Reddit. If `redirect` is `true`, `request_with_redirect`
 /// will recurse on the URL that Reddit provides in the Location HTTP header
 /// in its response.

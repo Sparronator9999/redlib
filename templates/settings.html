@@ -146,8 +146,7 @@
 				<div class="prefs-group">
 					<label for="clean_urls">Remove tracking elements from URLs</label>
 					<input type="hidden" value="off" name="clean_urls">
-					<input type="checkbox" name="clean_urls" {% if
-						prefs.clean_urls=="on" %}checked{% endif %}>
+					<input type="checkbox" name="clean_urls" {% if prefs.clean_urls=="on" %}checked{% endif %}>
 				</div>
 			</fieldset>
 			<input id="save" type="submit" value="Save">
@@ -159,8 +158,11 @@
 		{% for sub in prefs.subscriptions %}
 		<div>
 			{% decl feed %}
-			{% if sub.starts_with("u_") -%}{% let feed = format!("u/{}", &sub[2..]) -%}{% else -%}{% let feed =
-			format!("r/{}", sub) -%}{% endif -%}
+			{% if sub.starts_with("u_") -%}
+				{% let feed = format!("u/{}", &sub[2..]) -%}
+			{% else -%}
+				{% let feed = format!("r/{}", sub) -%}
+			{% endif -%}
 			<a href="/{{ feed }}">{{ feed }}</a>
 			<form action="/r/{{ sub }}/unsubscribe/?redirect=settings" method="POST">
 				<button class="unsubscribe">Unsubscribe</button>
@@ -175,8 +177,11 @@
 		{% for sub in prefs.filters %}
 		<div>
 			{% decl feed %}
-			{% if sub.starts_with("u_") -%}{% let feed = format!("u/{}", &sub[2..]) -%}{% else -%}{% let feed =
-			format!("r/{}", sub) -%}{% endif -%}
+			{% if sub.starts_with("u_") -%}
+				{% let feed = format!("u/{}", &sub[2..]) -%}
+			{% else -%}
+				{% let feed = format!("r/{}", sub) -%}
+			{% endif -%}
 			<a href="/{{ feed }}">{{ feed }}</a>
 			<form action="/r/{{ sub }}/unfilter/?redirect=settings" method="POST">
 				<button class="unfilter">Unfilter</button>
@@ -189,7 +194,7 @@
 	<div id="settings_note">
 		<p><b>Note:</b> settings and subscriptions are saved in browser cookies. Clearing your cookies will reset them.
 		</p>
-		<br>
+		<br/>
 		{% match prefs.to_urlencoded() %}
 		{% when Ok with (encoded_prefs) %}
 		<p>You can restore your current settings and subscriptions after clearing your cookies using <a
@@ -198,17 +203,17 @@
 		<p>There was an error creating your restore link: {{ err }}</p>
 		<p>Please report this issue</p>
 		{% endmatch %}
-		<br />
+		<br/>
 		<div>
 			<script src="/copy.js"></script>
 			<label for="bincode_str">Or, export/import here (be sure to save first):</label>
-			<br />
+			<br/>
 			<input type="text" id="bincode_str" name="bincode_str"
 				value="{% match prefs.to_bincode_str() %}{% when Ok with (bincode_str) %}{{ bincode_str }}{% when Err with (err) %}Error: {{ err }}{% endmatch %}"
 				readonly>
 			<button id="copy" class="copy">Copy</button>
 
-			<br />
+			<br/>
 			<form action="/settings/encoded-restore/" method="POST">
 				<input type="text" id="encoded_prefs" name="encoded_prefs" value=""
 					placeholder="Paste your encoded settings here">

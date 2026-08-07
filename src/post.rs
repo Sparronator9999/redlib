@@ -70,7 +70,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 			let mut post = parse_post(&response[0]["data"]["children"][0]).await;
 
 			let clean_urls = setting(&req, "clean_urls");
-			if clean_urls == "on".to_owned() {
+			if clean_urls == "on" {
 				post.media.url = clean_url(post.media.url);
 			}
 

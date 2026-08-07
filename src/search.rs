@@ -132,7 +132,7 @@ pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
 		match Post::fetch(&path, quarantined).await {
 			Ok((mut posts, after)) => {
 				let clean_urls = setting(&req, "clean_urls");
-				if clean_urls == "on".to_owned() {
+				if clean_urls == "on" {
 					posts.iter_mut().for_each(|post| post.media.url = clean_url(post.media.url.clone()));
 				}
 				let (_, all_posts_filtered) = filter_posts(&mut posts, &filters);
