@@ -1595,7 +1595,6 @@ dependencies = [
  "base2048",
  "base64",
  "bincode",
- "brotli",
  "build_html",
  "cached",
  "chrono",
