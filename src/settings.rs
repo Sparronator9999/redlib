@@ -24,7 +24,7 @@ struct SettingsTemplate {
 
 // CONSTANTS
 
-const PREFS: [&str; 20] = [
+const PREFS: [&str; 22] = [
 	"theme",
 	"front_page",
 	"layout",
@@ -45,6 +45,8 @@ const PREFS: [&str; 20] = [
 	"video_quality",
 	"remove_default_feeds",
 	"clean_urls",
+	"posts_per_page",
+	"max_comment_thread_depth",
 ];
 
 // FUNCTIONS

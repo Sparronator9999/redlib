@@ -111,6 +111,12 @@ pub struct Config {
 
 	#[serde(rename = "REDLIB_DEFAULT_CLEAN_URLS")]
 	pub(crate) default_clean_urls: Option<String>,
+
+	#[serde(rename = "REDLIB_DEFAULT_POSTS_PER_PAGE")]
+	pub(crate) default_posts_per_page: Option<String>,
+
+	#[serde(rename = "REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH")]
+	pub(crate) default_max_comment_thread_depth: Option<String>,
 }
 
 impl Config {
@@ -160,6 +166,8 @@ impl Config {
 			full_url: parse("REDLIB_FULL_URL"),
 			default_remove_default_feeds: parse("REDLIB_DEFAULT_REMOVE_DEFAULT_FEEDS"),
 			default_clean_urls: parse("REDLIB_DEFAULT_CLEAN_URLS"),
+			default_posts_per_page: parse("REDLIB_DEFAULT_POSTS_PER_PAGE"),
+			default_max_comment_thread_depth: parse("REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH"),
 		}
 	}
 }
@@ -191,6 +199,8 @@ fn get_setting_from_config(name: &str, config: &Config) -> Option<String> {
 		"REDLIB_FULL_URL" => config.full_url.clone(),
 		"REDLIB_DEFAULT_REMOVE_DEFAULT_FEEDS" => config.default_remove_default_feeds.clone(),
 		"REDLIB_DEFAULT_CLEAN_URLS" => config.default_clean_urls.clone(),
+		"REDLIB_DEFAULT_POSTS_PER_PAGE" => config.default_posts_per_page.clone(),
+		"REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH" => config.default_max_comment_thread_depth.clone(),
 		_ => None,
 	}
 }

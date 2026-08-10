@@ -31,13 +31,13 @@ static COMMENT_SEARCH_CAPTURE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\
 
 pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 	// Build Reddit API path
-	let mut path: String = format!("{}.json?{}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default());
+	let mut params = req.uri().query().unwrap_or_default().to_string();
 	let sub = req.param("sub").unwrap_or_default();
 	let quarantined = can_access_quarantine(&req, &sub);
 	let url = req.uri().to_string();
 
 	// Set sort to sort query parameter
-	let sort = param(&path, "sort").unwrap_or_else(|| {
+	let sort = param(&params, "sort").unwrap_or_else(|| {
 		// Grab default comment sort method from Cookies
 		let default_sort = setting(&req, "comment_sort");
 
@@ -45,13 +45,18 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 		if default_sort.is_empty() {
 			String::new()
 		} else {
-			path = format!(
-				"{}.json?{}&sort={}&raw_json=1",
-				req.uri().path(),
-				req.uri().query().unwrap_or_default(),
-				default_sort
-			);
+			params.push_str(&format!("&sort={default_sort}"));
 			default_sort
+		}
+	});
+
+	let _depth = param(&params, "depth").unwrap_or_else(|| {
+		let default_depth: u32 = setting(&req, "max_comment_thread_depth").parse().unwrap_or(0);
+		if default_depth < 1 {
+			String::new()
+		} else {
+			params.push_str(&format!("&depth={default_depth}"));
+			default_depth.to_string()
 		}
 	});
 
@@ -63,6 +68,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 	let highlighted_comment = &req.param("comment_id").unwrap_or_default();
 
 	// Send a request to the url, receive JSON in response
+	let path: String = format!("{}.json?{}&raw_json=1", req.uri().path().trim_end_matches("/"), params);
 	match json(path, quarantined).await {
 		// Otherwise, grab the JSON output from the request
 		Ok(response) => {

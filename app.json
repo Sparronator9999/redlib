@@ -82,6 +82,12 @@
     },
     "REDLIB_DEFAULT_CLEAN_URLS": {
       "required": false
+    },
+    "REDLIB_DEFAULT_POSTS_PER_PAGE": {
+        "required": false
+    },
+    "REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH": {
+        "required": false
     }
   }
 }

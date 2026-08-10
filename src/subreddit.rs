@@ -141,6 +141,11 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 		params.push_str(&format!("&geo_filter={geo_filter}"));
 	}
 
+	let posts_per_page: u32 = setting(&req, "posts_per_page").parse().unwrap_or(25).clamp(1, 100);
+	if posts_per_page != 25 {
+		params.push_str(&format!("&limit={}", posts_per_page));
+	}
+
 	let path = format!(
 		"/r/{}/{sort}.json?{}{params}",
 		sub_name.replace('+', "%2B"),

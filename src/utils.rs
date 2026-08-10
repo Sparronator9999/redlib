@@ -630,7 +630,7 @@ pub struct Params {
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Eq)]
-#[revisioned(revision = 2)]
+#[revisioned(revision = 3)]
 pub struct Preferences {
 	#[revision(start = 1)]
 	#[serde(skip_serializing, skip_deserializing)]
@@ -681,6 +681,10 @@ pub struct Preferences {
 	pub remove_default_feeds: String,
 	#[revision(start = 2, default_fn = "default_clean_urls")]
 	pub clean_urls: String,
+	#[revision(start = 3)]
+	pub posts_per_page: String,
+	#[revision(start = 3)]
+	pub max_comment_thread_depth: String,
 }
 
 fn serialize_vec_with_plus<S>(vec: &[String], serializer: S) -> Result<S::Ok, S::Error>
@@ -740,6 +744,8 @@ impl Preferences {
 			hide_score: setting(req, "hide_score"),
 			remove_default_feeds: setting(req, "remove_default_feeds"),
 			clean_urls: setting(req, "clean_urls"),
+			posts_per_page: setting(req, "posts_per_page"),
+			max_comment_thread_depth: setting(req, "max_comment_thread_depth"),
 		}
 	}
 
@@ -1634,10 +1640,12 @@ mod tests {
 			hide_score: "off".to_owned(),
 			remove_default_feeds: "off".to_owned(),
 			clean_urls: "off".to_owned(),
+			posts_per_page: "25".to_owned(),
+			max_comment_thread_depth: "-1".to_owned(),
 		};
 		let urlencoded = serde_urlencoded::to_string(prefs).expect("Failed to serialize Prefs");
 
-		assert_eq!(urlencoded, "theme=laserwave&front_page=default&layout=compact&wide=on&blur_spoiler=on&show_nsfw=off&blur_nsfw=on&hide_hls_notification=off&video_quality=best&hide_sidebar_and_summary=off&use_hls=on&autoplay_videos=on&fixed_navbar=on&disable_visit_reddit_confirmation=on&comment_sort=confidence&post_sort=top&subscriptions=memes%2Bmildlyinteresting&filters=&hide_awards=off&hide_score=off&remove_default_feeds=off&clean_urls=off");
+		assert_eq!(urlencoded, "theme=laserwave&front_page=default&layout=compact&wide=on&blur_spoiler=on&show_nsfw=off&blur_nsfw=on&hide_hls_notification=off&video_quality=best&hide_sidebar_and_summary=off&use_hls=on&autoplay_videos=on&fixed_navbar=on&disable_visit_reddit_confirmation=on&comment_sort=confidence&post_sort=top&subscriptions=memes%2Bmildlyinteresting&filters=&hide_awards=off&hide_score=off&remove_default_feeds=off&clean_urls=off&posts_per_page=25&max_comment_thread_depth=-1");
 	}
 
 	#[test]

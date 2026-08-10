@@ -444,6 +444,8 @@ Assign a default value for each user-modifiable setting by passing environment v
 | `FIXED_NAVBAR`                      | `["on", "off"]`                                                                                                                                                                                                                 | `on`          |
 | `REMOVE_DEFAULT_FEEDS`              | `["on", "off"]`                                                                                                                                                                                                                 | `off`         |
 | `CLEAN_URLS`                        | `["on", "off"]`                                                                                                                                                                                                                 | `off`         |
+| `POSTS_PER_PAGE`                    | Integer 1-100                                                                                                                                                                                                                   | 25            |
+| `MAX_COMMENT_THREAD_DEPTH`          | Unsigned integer (0 = unlimited/Reddit default)                                                                                                                                                                                 | 0             |
 
 ## Forward Proxies
 

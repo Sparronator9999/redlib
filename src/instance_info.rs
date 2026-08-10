@@ -158,6 +158,8 @@ impl InstanceInfo {
 				["Subscriptions", &convert(&self.config.default_subscriptions)],
 				["Filters", &convert(&self.config.default_filters)],
 				["Clean URLs", &convert(&self.config.default_clean_urls)],
+				["Posts per page", &convert(&self.config.default_posts_per_page)],
+				["Max comment thread depth", &convert(&self.config.default_max_comment_thread_depth)],
 			])
 			.with_header_row(["Default preferences"]),
 		);
@@ -195,7 +197,9 @@ impl InstanceInfo {
 					Default hide HLS notification: {:?}\n
 					Default clean urls: {:?}\n
 					Default subscriptions: {:?}\n
-					Default filters: {:?}\n",
+					Default filters: {:?}\n
+					Default posts per page: {:?}\n
+					Default max comment thread depth: {:?}\n",
 					self.package_name,
 					self.crate_version,
 					self.git_commit,
@@ -224,6 +228,8 @@ impl InstanceInfo {
 					self.config.default_clean_urls,
 					self.config.default_subscriptions,
 					self.config.default_filters,
+					self.config.default_posts_per_page,
+					self.config.default_max_comment_thread_depth,
 				)
 			}
 			StringType::Html => self.to_table(),
