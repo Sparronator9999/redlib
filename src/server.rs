@@ -9,12 +9,7 @@ use hyper::{
 };
 use hyper::{Body, Method, Request, Response, Server as HyperServer};
 use route_recognizer::{Params, Router};
-use std::{
-	pin::Pin,
-	result::Result,
-	str,
-	string::ToString,
-};
+use std::{pin::Pin, result::Result, str, string::ToString};
 use time::OffsetDateTime;
 
 use crate::config;
@@ -347,11 +342,7 @@ impl Server {
 }
 
 /// Create a boilerplate Response for error conditions.
-async fn new_boilerplate(
-	default_headers: HeaderMap<header::HeaderValue>,
-	status: u16,
-	body: Body,
-) -> Result<Response<Body>, String> {
+async fn new_boilerplate(default_headers: HeaderMap<header::HeaderValue>, status: u16, body: Body) -> Result<Response<Body>, String> {
 	match Response::builder().status(status).body(body) {
 		Ok(mut res) => {
 			res.headers_mut().extend(default_headers.clone());
