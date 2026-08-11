@@ -662,12 +662,15 @@ aside {
 /* Sorting and Search */
 
 select,
-#search,
+input[type="search"],
+input[type="number"],
 #sort_options,
 #listing_options,
 #inside,
-#searchbox > *,
-#sort_submit {
+#search > *,
+#comment_search > *,
+#sort_submit,
+#search-submit {
 	height: 38px;
 }
 
@@ -684,10 +687,11 @@ select {
 	cursor: pointer;
 }
 
-#searchbox > * { font-size: 15px; }
+#search > * { font-size: 15px; }
 
 select,
-#search {
+input[type="search"],
+input[type="number"] {
 	border: none;
 	padding: 0 10px;
 	-webkit-appearance: none;
@@ -696,11 +700,11 @@ select,
 	border-radius: 5px 0px 0px 5px;
 }
 
-.commentQuery {
-	background: var(--post);
+#comment_search input[type="search"] {
+	background: var(--outside);
 }
 
-#searchbox {
+#search, #comment_search {
 	grid-area: searchbox;
 	display: -webkit-flex;
 	display: flex;
@@ -709,23 +713,26 @@ select,
 	margin-bottom: 0;
 }
 
-#searchbox:focus-within {
+#search:focus-within {
 	outline: 2px solid var(--accent);
 }
 
-#searchbox > *,
-#sort_submit {
+#search > *,
+#sort_submit,
+#search-submit {
 	background: var(--highlighted);
+	margin: 0;
+	padding: 1px 8px;
 }
 
-#search {
+input[type="search"] {
 	border-right: 2px var(--outside) solid;
 	-webkit-flex: 1;
 	flex: 1;
 }
 @media screen and (max-width: 800px) {
-	#search { width: 0; }
-	#search.commentQuery { width: unset; }
+	input[type="search"] { width: 0; }
+	#comment_search{ width: unset; }
 }
 
 #inside {
@@ -792,11 +799,6 @@ button.submit:hover > svg {
 	font-size: 15px;
 }
 
-#search_sort > #search {
-	border: 0;
-	background: transparent;
-}
-
 #commentQueryForms {
 	display: -webkit-flex;
 	display: flex;
@@ -842,7 +844,8 @@ button.submit:hover > svg {
 
 /* When screen size is smaller than 480px we switch to a design better suited for mobile devices */
 @media screen and (max-width: 480px) {
-	.search_widget_divider_box > #search {
+	.search_widget_divider_box > input[type="search"] {
+		-webkit-flex: 1;
 		flex: 1;
 		min-width: unset;
 		border-right: 0;
@@ -2047,7 +2050,7 @@ th {
 	#links {
 		margin-bottom: 5px;
 	}
-	#searchbox {
+	#search {
 		width: calc(100vw - 20px);
 		margin-bottom: 10px;
 	}

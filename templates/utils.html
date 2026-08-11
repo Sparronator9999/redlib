@@ -15,8 +15,8 @@
 {%- endmacro %}
 
 {% macro search(root, search) -%}
-<form action="{% if root != "/r/" && !root.is_empty() %}{{ root }}{% endif %}/search" id="searchbox">
-	<input id="search" type="text" name="q" placeholder="Search" title="Search redlib" value="{{ search }}">
+<form action="{% if root != "/r/" && !root.is_empty() %}{{ root }}{% endif %}/search" id="search">
+	<input type="search" name="q" placeholder="Search" title="Search redlib" value="{{ search }}">
 	{% if root != "/r/" && !root.is_empty() %}
 	<div id="inside">
 		<input type="checkbox" name="restrict_sr" id="restrict_sr" checked>
