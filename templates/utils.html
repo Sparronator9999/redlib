@@ -67,7 +67,14 @@
 {% set post_should_be_blurred = post.flags.spoiler && prefs.blur_spoiler=="on" -%}
 <!-- POST CONTENT -->
 <div class="post highlighted{% if post_should_be_blurred %} post_blurred{% endif %}">
-	<p class="post_header">
+	<div class="post_header">
+		<span class="post_score desktop_item" title="{{ post.score.1 }}">
+			{% if prefs.hide_score != "on" %}
+			{{ post.score.0 }}
+			{% else %}
+			&#x2022;
+			{% endif %}
+		</span>
 		<a class="post_subreddit" href="/r/{{ post.community }}">r/{{ post.community }}</a>
 		<span class="dot">&bull;</span>
 		<a class="post_author {{ post.author.distinguished }}" href="/user/{{ post.author.name }}">u/{{ post.author.name }}</a>
@@ -87,7 +94,7 @@
 			{% endfor %}
 		</span>
 		{% endif %}
-	</p>
+	</div>
 	<h1 class="post_title">
 		{% if post.flair.flair_parts.len() > 0 %}
 			<a href="/r/{{ post.community }}/search?q=flair_name%3A%22{{ post.flair.text }}%22&restrict_sr=on"
@@ -146,14 +153,14 @@
 		{{ post.body|safe }}
 		{{ poll(post) }}
 	</div>
-	<div class="post_score" title="{{ post.score.1 }}">
-	{% if prefs.hide_score != "on" %}
-	{{ post.score.0 }}
-	{% else %}
-	&#x2022;
-	{% endif %}
-	<span class="label"> Upvotes</span></div>
 	<div class="post_footer">
+		<div class="post_score mobile_item" title="{{ post.score.1 }}">
+			{% if prefs.hide_score != "on" %}
+			{{ post.score.0 }}
+			{% else %}
+			&#x2022;
+			{% endif %}
+		</div>
 		<ul id="post_links">
 			<li>
 				<a href="{{ post.permalink }}">
@@ -182,7 +189,7 @@
 			</li>
 			{% endif %}
 		</ul>
-		<p>{{ post.upvote_ratio }}%<span id="upvoted"> Upvoted</span></p>
+		<p class="post_upvoted">{{ post.upvote_ratio }}%<span id="upvoted"> Upvoted</span></p>
 	</div>
 </div>
 {%- endmacro %}
@@ -207,7 +214,14 @@
 {% macro post_in_list(post) -%}
 {% set post_should_be_blurred = (post.flags.nsfw && prefs.blur_nsfw=="on") || (post.flags.spoiler && prefs.blur_spoiler=="on") -%}
 <div class="post{% if post.flags.stickied %} stickied{% endif %}{% if post_should_be_blurred %} post_blurred{% endif %}" id="{{ post.id }}">
-	<p class="post_header">
+	<div class="post_header">
+		<span class="post_score desktop_item" title="{{ post.score.1 }}">
+			{% if prefs.hide_score != "on" %}
+			{{ post.score.0 }}
+			{% else %}
+			&#x2022;
+			{% endif %}
+		</span>
 		{% decl community %}
 		{% if post.community.starts_with("u_") -%}
 			{% let community = format!("u/{}", &post.community[2..]) -%}
@@ -226,7 +240,7 @@
 			</span>
 			{% endfor %}
 		{% endif %}
-	</p>
+	</div>
 	<h2 class="post_title">
 		{% if post.flair.flair_parts.len() > 0 %}
 			<a href="/r/{{ post.community }}/search?q=flair_name%3A%22{{ post.flair.text }}%22&restrict_sr=on"
@@ -265,20 +279,11 @@
 			<path d="M35,15h-15a10,10 0,0,0 0,20h25a10,10 0,0,0 10,-10m-12.5,0a10, 10 0,0,1 10, -10h25a10,10 0,0,1 0,20h-15" fill="none" stroke-width="5" stroke-linecap="round"/>
 		</svg>
 		{% else %}
-		<div style="max-width:{{ post.thumbnail.width }}px;max-height:{{ post.thumbnail.height }}px;">
-			<img width="100%" height="100%" loading="lazy" alt="Thumbnail" src="{{ post.thumbnail.url }}"/>
-		</div>
+		<img style="max-width:{{ post.thumbnail.width }}px;max-height:{{ post.thumbnail.height }}px;" width="100%" height="100%" loading="lazy" alt="Thumbnail" src="{{ post.thumbnail.url }}"></img>
 		{% endif %}
 		<span>{% if post.post_type == "link" %}{{ post.domain }}{% else %}{{ post.post_type }}{% endif %}</span>
 	</a>
 	{% endif %}
-	<div class="post_score" title="{{ post.score.1 }}">
-	{% if prefs.hide_score != "on" %}
-	{{ post.score.0 }}
-	{% else %}
-	&#x2022;
-	{% endif %}
-	<span class="label"> Upvotes</span></div>
 	<div class="post_body post_preview">
 		{{ post.body|safe }}
 	</div>
@@ -286,6 +291,13 @@
 	{{ poll(post) }}
 
 	<div class="post_footer">
+		<span class="post_score mobile_item" title="{{ post.score.1 }}">
+			{% if prefs.hide_score != "on" %}
+			{{ post.score.0 }}
+			{% else %}
+			&#x2022;
+			{% endif %}
+		</span>
 		<a href="{{ post.permalink }}" class="post_comments" title="{{ post.comments.1 }} {% if post.comments.1 == "1" %}comment{% else %}comments{% endif %}">{{ post.comments.0 }} {% if post.comments.1 == "1" %}comment{% else %}comments{% endif %}</a>
 	</div>
 </div>
