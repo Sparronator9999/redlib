@@ -384,7 +384,7 @@ body > footer {
 /* / Body footer. */
 
 /* Footer in content block. */
-main > * > footer {
+#content_footer {
 	display: -webkit-flex;
 	display: flex;
 	-webkit-justify-content: center;
@@ -392,7 +392,7 @@ main > * > footer {
 	margin-top: 20px;
 }
 
-main > * > footer > a {
+#content_footer > a {
 	margin-right: 5px;
 }
 
@@ -876,7 +876,7 @@ button.submit:hover > svg {
 
 #sort_options,
 #listing_options,
-main > * > footer > a {
+#content_footer > a {
 	border-radius: 5px;
 	-webkit-align-items: center;
 	align-items: center;
@@ -889,7 +889,7 @@ main > * > footer > a {
 
 #sort_options > a,
 #listing_options > a,
-main > * > footer > a {
+#content_footer > a {
 	color: var(--text);
 	padding: 10px 20px;
 	text-align: center;
