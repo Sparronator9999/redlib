@@ -1317,8 +1317,12 @@ pub fn rewrite_emotes(media_metadata: &Value, comment: String) -> String {
 /// Append `m` and `k` for millions and thousands respectively, and
 /// round to the nearest tenth.
 pub fn format_num(num: i64) -> (String, String) {
-	let truncated = if num >= 1_000_000 || num <= -1_000_000 {
+	let truncated = if num >= 10_000_000 || num <= -10_000_000 {
+		format!("{}m", num / 1_000_000)
+	} else if num >= 1_000_000 || num <= -1_000_000 {
 		format!("{:.1}m", num as f64 / 1_000_000.0)
+	} else if num >= 10000 || num <= -10000 {
+		format!("{}k", num / 1_000)
 	} else if num >= 1000 || num <= -1000 {
 		format!("{:.1}k", num as f64 / 1_000.0)
 	} else {
