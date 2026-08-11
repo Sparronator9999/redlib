@@ -11,7 +11,7 @@
 	<div id="column_one">
 		<form id="search_sort">
 			<div class="search_widget_divider_box">
-				<input id="search" type="text" name="q" placeholder="Search" value="{{ params.q|safe }}" title="Search redlib">
+				<input type="search" name="q" placeholder="Search" value="{{ params.q|safe }}" title="Search redlib">
 				<div class="search_widget_divider_box">
 					{% if sub != "" %}
 					<div id="inside">
@@ -44,7 +44,7 @@
 		{% if subreddits.len() > 0 || params.typed == "sr_user" %}
 		<div id="search_subreddits">
 			{% if params.typed == "sr_user" %}
-			<a href="?q={{ params.q }}&sort={{ params.sort }}&t={{ params.t }}" class="search_subreddit" id="more_subreddits">← Back to post/comment results</a>
+			<a href="?q={{ params.q }}&sort={{ params.sort }}&t={{ params.t }}" class="search_subreddit" id="more_subreddits">&larr; Back to post/comment results</a>
 			{% endif %}
 			{% for subreddit in subreddits %}
 			<a href="{{ subreddit.url }}" class="search_subreddit">
@@ -60,7 +60,7 @@
 			</a>
 			{% endfor %}
 			{% if params.typed != "sr_user" %}
-			<a href="?q={{ params.q }}&sort={{ params.sort }}&t={{ params.t }}&type=sr_user" class="search_subreddit" id="more_subreddits">More subreddit results →</a>
+			<a href="?q={{ params.q }}&sort={{ params.sort }}&t={{ params.t }}&type=sr_user" class="search_subreddit" id="more_subreddits">More subreddit results &rarr;</a>
 			{% endif %}
 		</div>
 		{% endif %}
