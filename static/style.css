@@ -1427,7 +1427,7 @@ a.search_subreddit:hover {
 /* Comment */
 
 .comment {
-	margin: 10px 0;
+	padding: 5px 0;
 	border-radius: 5px;
 	display: -webkit-flex;
 	display: flex;
@@ -1468,7 +1468,6 @@ a.search_subreddit:hover {
 .comment_left {
 	text-align: center;
 	min-width: 50px;
-	padding: 5px 0;
 	-webkit-align-items: center;
 	align-items: center;
 }
@@ -1496,23 +1495,29 @@ a.search_subreddit:hover {
 .comment_score {
 	color: var(--accent);
 	background: var(--foreground);
-	min-width: 40px;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-align-items: center;
+	align-items: center;
+	-webkit-justify-content: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
 	border-radius: 5px;
-	padding: 10px 0;
 	font-size: 14px;
 	font-weight: 600;
+	text-wrap: nowrap;
 }
 
 .comment_right {
-	word-wrap: anywhere;
-	padding: 10px 0 10px 5px;
+	padding: 10px 0;
 	-webkit-flex: 1 1;
 	flex: 1 1;
 	min-width: 0;
 }
 
 .comment:has([id]) .comment_data > * {
-	margin-right: 5px;
+	margin: 0 5px;
 }
 
 .comment:not([id]) .comment_data {
@@ -1536,15 +1541,8 @@ a.search_subreddit:hover {
 	flex: 0 1 auto;
 }
 
-.comment_image {
-	max-width: 500px;
-	align-self: center;
-}
-
 .comment_body {
-	opacity: 0.9;
-	font-weight: normal;
-	padding: 5px 5px;
+	padding: 5px;
 	margin: 5px 0;
 	overflow: auto;
 }
@@ -1583,7 +1581,6 @@ a.search_subreddit:hover {
 
 .replies > .comment {
 	margin-left: -20px;
-	padding: 5px;
 }
 
 .created {
@@ -1600,9 +1597,12 @@ a.search_subreddit:hover {
 	width: 2px;
 	height: 100%;
 	background: var(--foreground);
+	-webkit-flex: 1;
+	flex: 1;
 }
 
-summary.comment_data {
+.comment_data {
+	padding-left: 6px;
 	cursor: pointer;
 }
 
@@ -2127,26 +2127,23 @@ th {
 	}
 
 	.comment_left {
-		min-width: auto;
-		padding: 5px 0px;
-		-webkit-align-items: initial;
-		align-items: initial;
-		margin-top: -5px;
+		-webkit-min-logical-width: -webkit-fit-content;
+		min-width: unset;
 	}
 
 	.line {
-		margin-left: 5px;
+		margin-left: 2px;
 	}
 
-	/* .thread { margin-left: -5px; } */
 	.comment_right {
-		padding: 5px 0 10px 2px;
+		padding: 5px 0 5px 2px;
 	}
 	.comment_author {
-		margin-left: 12px;
+		margin-left: 10px;
 	}
 	.comment_data {
-		margin-left: 12px;
+		margin-left: 4px;
+		padding-left: 16px;
 	}
 
 	.user-comment .comment_data {
@@ -2178,12 +2175,11 @@ th {
 	}
 
 	.comment_score {
-		min-width: 34px;
-		height: 20px;
+		width: 32px;
+		height: 32px;
 		font-size: 12px;
-		padding: 7px 0px;
-		margin-right: -5px;
-		align-content: center;
+		margin-right: -3px;
+		margin-top: 4px;
 	}
 
 	#post_links > li {
