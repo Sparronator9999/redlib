@@ -462,9 +462,9 @@ aside {
 	#subreddit, #sidebar { min-width: 350px; }
 }
 
-#user *,
-#subreddit * {
-	text-align: center;
+#sub_meta {
+	display: -webkit-flex;
+	display: flex;
 }
 
 #user,
@@ -473,14 +473,13 @@ aside {
 	padding: 20px;
 }
 
-#sidebar,
-#sidebar_contents {
+#sidebar {
 	margin-top: 10px;
 }
 #sidebar_label,
 #subreddit_label {
 	padding: 10px;
-	text-align: left;
+	text-align: center;
 }
 
 #user_icon,
@@ -515,20 +514,39 @@ aside {
 	margin-bottom: 20px;
 }
 
-#user_details,
 #sub_details,
+#user_details,
 #sub_actions,
-#user_actions {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
+#user_actions,
+#sub_members,
+#sub_active,
+#user_karma,
+#user_created {
+	display: -webkit-flex;
+	display: flex;
 }
-@media screen and (max-width: 279px) {
-	#sub_actions { display: unset; }
+#user,
+#sub_meta,
+#sub_members,
+#sub_active,
+#user_karma,
+#user_created {
+	-webkit-flex-direction: column;
+	flex-direction: column;
+	-webkit-align-items: center;
+	align-items: center;
 }
-
-#user_details > label,
-#sub_details > label {
-	color: var(--accent);
+#sub_details,
+#user_details {
+	width: 100%;
+	/* old WebKit doesn't support `space-evenly` apparently */
+	-webkit-justify-content: space-around;
+	justify-content: space-evenly;
+}
+#user_actions,
+#sub_actions {
+	-webkit-gap: 16px;
+	gap: 16px;
 }
 
 /* Subscriptions */
@@ -866,6 +884,11 @@ button.submit:hover > svg {
 		border-left: 2px var(--outside) solid;
 	}
 }
+
+@media screen and (max-width: 279px) {
+	#sub_actions { display: unset; }
+}
+
 
 #sort_options,
 #listing_options,

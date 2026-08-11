@@ -133,10 +133,14 @@
 			<p id="user_name">u/{{ user.name }}</p>
 			<div id="user_description">{{ user.description }}</div>
 			<div id="user_details">
-				<label>Karma</label>
-				<label>Created</label>
-				<div>{{ user.karma }}</div>
-				<div>{{ user.created }}</div>
+				<div id="user_karma">
+					<label>Karma</label>
+					<div>{{ user.karma }}</div>
+				</div>
+				<div id="user_created">
+					<label>Created</label>
+					<div>{{ user.created }}</div>
+				</div>
 			</div>
 			<div id="user_actions">
 				{% let name = ["u_", user.name.as_str()].join("") %}
