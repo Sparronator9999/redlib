@@ -60,7 +60,6 @@
 			<div id="posts">
 			{% for post in posts %}
 			{% if !(post.flags.nsfw && prefs.show_nsfw != "on") %}
-			<hr class="sep"/>
 			{{ utils::post_in_list(post) }}
 			{% endif %}
 			{% endfor %}
