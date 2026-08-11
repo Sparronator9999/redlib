@@ -1741,19 +1741,24 @@ summary.comment_data {
 	margin-top: 7px;
 }
 
-.prefs-group > *:not(:last-child) {
+.prefs .prefs-group > *:not(:last-child) {
 	margin-right: 1ch;
 }
 
-.prefs-group > *:last-child {
+.prefs .prefs-group > *:last-child {
 	margin-left: auto;
 }
 
-.prefs select {
+.prefs select,
+.prefs input[type="number"] {
 	border-radius: 5px;
 	box-shadow: var(--shadow);
 	margin-left: 20px;
 	background: var(--foreground);
+}
+
+.prefs input[type="number"] {
+	max-width: 80px;
 }
 
 aside.prefs {
@@ -1790,10 +1795,10 @@ input[type="submit"] {
 	color: var(--accent);
 }
 
-.helper {
+#feed_list.hls-explainer {
 	padding: 10px;
 	width: 250px;
-	background: var(--highlighted) !important;
+	background: var(--highlighted);
 }
 /* Info page */
 .unset {
