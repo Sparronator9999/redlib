@@ -190,14 +190,26 @@ nav #logo {
 }
 
 nav #links {
-	margin-left: 10px;
+	width: 100%;
+	margin-right: 5px;
+	-webkit-flex: 1 0;
+	flex: 1 0;
+	display: -webkit-flex;
 	display: flex;
-	flex-grow: 1;
-	flex-basis: 0;
-	justify-content: flex-end;
+	-webkit-align-items: flex-end;
+	align-items: flex-end;
 }
 
-nav #links svg {
+nav #links_desktop {
+	margin-left: 10px;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-justify-content: flex-end;
+	justify-content: flex-end;
+	-webkit-flex: 1 0;
+	flex: 1 0;
+}
+nav #links_mobile {
 	display: none;
 }
 
@@ -210,7 +222,7 @@ figcaption {
 	text-align: center;
 }
 
-#settings_link {
+.settings_link {
 	opacity: 0.8;
 	margin-left: 10px;
 }
@@ -1977,21 +1989,29 @@ th {
 	}
 
 	nav {
-		display: grid;
-		grid-template-areas: "logo links" "searchbox searchbox";
+		-webkit-flex-direction: column;
+		flex-direction: column;
 		padding: 5px 10px 0;
-		width: calc(100% - 20px);
-		margin: 0;
 	}
 
 	nav #links {
-		margin-left: auto;
+		margin-right: 0;
 	}
-	nav #links span {
+	nav #links_desktop {
 		display: none;
 	}
-	nav #links svg {
-		display: block;
+	nav #links_mobile {
+		margin-left: auto;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-flex: 1 0;
+		flex: 1 0;
+		-webkit-justify-content: flex-end;
+		justify-content: flex-end;
+	}
+	nav #logo,
+	nav #links_mobile {
+		margin: 0 0 5px;
 	}
 
 	#subscriptions {
