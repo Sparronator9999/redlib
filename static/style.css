@@ -1493,7 +1493,7 @@ a.search_subreddit:hover {
 }
 
 .comment_right {
-	padding: 10px 0;
+	padding: 7px 0;
 	-webkit-flex: 1 1;
 	flex: 1 1;
 	min-width: 0;
@@ -1576,6 +1576,10 @@ a.search_subreddit:hover {
 	font-size: 14px;
 }
 
+.created, .edited {
+	text-wrap: nowrap;
+}
+
 .line {
 	width: 2px;
 	background: var(--foreground);
@@ -1586,6 +1590,7 @@ a.search_subreddit:hover {
 .comment_data {
 	padding-left: 6px;
 	cursor: pointer;
+	line-height: 1.6;
 }
 
 .user_comment_data_divider {
@@ -2117,13 +2122,14 @@ th {
 	}
 
 	.comment_right {
-		padding: 5px 0 5px 2px;
+		padding: 0 0 0 2px;
 	}
 	.comment_author {
 		margin-left: 10px;
 	}
 	.comment_data {
 		margin-left: 4px;
+		margin-top: -4px;
 		padding-left: 16px;
 	}
 
