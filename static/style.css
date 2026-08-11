@@ -1159,6 +1159,7 @@ a.search_subreddit:hover {
 	width: auto;
 	height: auto;
 	overflow: hidden;
+	position: relative;
 }
 
 .post_media_video {
@@ -1437,6 +1438,7 @@ a.search_subreddit:hover {
 .comment img {
 	max-width: 50%;
 	height: auto;
+	position: relative;
 }
 
 .giphy-embed {
@@ -1470,6 +1472,7 @@ a.search_subreddit:hover {
 	min-width: 50px;
 	-webkit-align-items: center;
 	align-items: center;
+	position: relative;
 }
 
 .comment_title {
