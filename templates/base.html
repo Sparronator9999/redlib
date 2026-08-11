@@ -1,7 +1,7 @@
 {% import "utils.html" as utils %}
 
 <!DOCTYPE html>
-<html lang="en" class="{% if prefs.fixed_navbar == "on" %}fixed_navbar{% endif %}">
+<html lang="en">
 	<head>
 		{% block head %}
 		<title>{% block title %}Redlib{% endblock %}</title>
@@ -34,11 +34,9 @@
 	<body class="
 		{% if prefs.layout != "" %}{{ prefs.layout }}{% endif %}
 		{% if prefs.wide == "on" %} wide{% endif %}
-		{% if prefs.theme != "system" %} {{ prefs.theme }}{% endif %}
-		{% if prefs.fixed_navbar == "on" %} fixed_navbar{% endif %}">
+		{% if prefs.theme != "system" %} {{ prefs.theme }}{% endif %}">
 		<!-- NAVIGATION BAR -->
-		<nav class="
-			{% if prefs.fixed_navbar == "on" %} fixed_navbar{% endif %}">
+		<nav {% if prefs.fixed_navbar == "on" %}class="fixed_navbar"{% endif %}>
 			<div id="logo">
 				<a id="redlib" href="/"><span id="red">red</span><span id="lib">lib.</span></a>
 				{% block subscriptions %}{% endblock %}
@@ -75,10 +73,8 @@
 
 		<!-- FOOTER -->
 		{% block footer %}
-			<footer>
-				<div class="footer-buttons">
-					<p><span id="version">v{{ env!("CARGO_PKG_VERSION") }}&emsp;</span><a href="/info" title="View instance information">ⓘ View instance info</a>&emsp;<a href="https://github.com/redlib-org/redlib" title="View code on GitHub">&lt;&gt; Code</a></p>
-				</div>
+			<footer id="instance_info">
+				<p><span id="version">v{{ env!("CARGO_PKG_VERSION") }}&emsp;</span><a href="/info" title="View instance information">ⓘ View instance info</a>&emsp;<a href="https://github.com/redlib-org/redlib" title="View code on GitHub">&lt;&gt; Code</a></p>
 			</footer>
 		{% endblock %}
 	</body>

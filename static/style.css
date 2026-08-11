@@ -26,8 +26,6 @@
 	--popup-goback-background: var(--popup-red);
 	--popup-goback-text: #222;
 	--popup-border: 1px solid var(--popup-red);
-
-	--footer-height: 30px;
 }
 
 @font-face {
@@ -93,6 +91,10 @@
 	outline: 2px solid var(--accent);
 }
 
+* {
+	box-sizing: border-box;
+}
+
 html,
 body,
 div,
@@ -125,19 +127,12 @@ input {
 	word-wrap: anywhere;
 }
 
-html.fixed_navbar {
-	scroll-padding-top: 50px;
-}
-
-@media screen and (max-width: 800px) {
-	html.fixed_navbar {
-		scroll-padding-top: 100px;
-	}
+html {
+	height: 100%;
 }
 
 body {
 	background: var(--background);
-	padding-bottom: var(--footer-height);
 	font-size: 15px;
 	position: relative;
 }
@@ -168,11 +163,12 @@ nav {
 	padding: 5px 15px;
 	margin-bottom: 10px;
 	min-height: 40px;
-	width: calc(100% - 30px);
+	width: 100%;
 }
 
 nav.fixed_navbar {
-	position: fixed;
+	position: -webkit-sticky;
+	position: sticky;
 }
 
 nav * {
@@ -330,6 +326,8 @@ figcaption {
 main {
 	display: -webkit-flex;
 	display: flex;
+	-webkit-flex: 1;
+	flex: 1;
 	-webkit-justify-content: center;
 	justify-content: center;
 	max-width: 1000px;
@@ -338,7 +336,7 @@ main {
 }
 
 .wide main {
-	max-width: calc(100% - 40px);
+	max-width: 100%;
 }
 
 .wide #column_one {
@@ -356,8 +354,8 @@ main {
 	#column_one { max-width: unset; }
 }
 
-/* Body footer. */
-body > footer {
+/* Instance info footer. */
+#instance_info {
 	display: -webkit-flex;
 	display: flex;
 	-webkit-justify-content: center;
@@ -366,22 +364,10 @@ body > footer {
 	align-items: center;
 	width: 100%;
 	background: var(--post);
-	position: absolute;
-	bottom: 0;
-}
-
-.footer-buttons {
-	-webkit-align-items: center;
-	align-items: center;
-	border-radius: 0.25rem;
-	box-sizing: border-box;
-	color: var(--text);
-	cursor: pointer;
-	display: inline-flex;
 	opacity: 0.8;
 }
 
-/* / Body footer. */
+/* / Instance info footer. */
 
 /* Footer in content block. */
 #content_footer {
@@ -586,7 +572,6 @@ aside {
 	background-color: var(--outside);
 	-webkit-align-items: center;
 	align-items: center;
-	box-sizing: border-box;
 	font-size: 15px;
 	display: inline-block;
 }
@@ -1231,7 +1216,6 @@ a.search_subreddit:hover {
 	font-weight: normal;
 	padding: 5px 15px 5px 12px;
 	grid-area: post_body;
-	width: calc(100% - 30px);
 	overflow-wrap: anywhere;
 }
 
@@ -1416,6 +1400,7 @@ a.search_subreddit:hover {
 .comment {
 	margin: 10px 0;
 	border-radius: 5px;
+	display: -webkit-flex;
 	display: flex;
 }
 
@@ -1987,6 +1972,8 @@ th {
 	main {
 		-webkit-flex-direction: column-reverse;
 		flex-direction: column-reverse;
+		-webkit-justify-content: flex-end;
+		justify-content: flex-end;
 		padding: 10px;
 		margin: 0 0 10px 0;
 		max-width: 100%;
@@ -2032,17 +2019,6 @@ th {
 	}
 	#user { margin: 0 0 20px; }
 
-	body.fixed_navbar {
-		min-height: calc(100vh - 75px);
-		padding-top: 45px;
-		#subreddit { margin: 49px 0 0; }
-		#user { margin: 49px 0 20px 0; }
-		#settings { margin-top: 48px; }
-		div.post.highlighted { margin-top: 49px; }
-		main:not(:has(div + aside)) { #sort { margin-top: 49px; } }
-		#column_one:has(div.post.highlighted + #commentQueryForms) { #sort { margin-top: 0 } }
-	}
-
 	#sidebar {
 		margin: 20px 0;
 	}
@@ -2051,7 +2027,7 @@ th {
 		margin-bottom: 5px;
 	}
 	#search {
-		width: calc(100vw - 20px);
+		width: 100%;
 		margin-bottom: 10px;
 	}
 }
