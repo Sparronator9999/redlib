@@ -718,7 +718,6 @@ input[type="number"] {
 #search, #comment_search {
 	display: -webkit-flex;
 	display: flex;
-	box-shadow: var(--shadow);
 	border-radius: 5px;
 	margin-bottom: 0;
 }
@@ -846,7 +845,6 @@ button.submit:hover > svg {
 
 .search_widget_divider_box > #sort_options {
 	border-radius: 0;
-	box-shadow: none;
 }
 
 /* When screen size is smaller than 480px we switch to a design better suited for mobile devices */
@@ -889,7 +887,6 @@ button.submit:hover > svg {
 	border-radius: 5px;
 	-webkit-align-items: center;
 	align-items: center;
-	box-shadow: var(--shadow);
 	background: var(--foreground);
 	display: -webkit-flex;
 	display: flex;
@@ -922,7 +919,6 @@ button.submit:hover > svg {
 #search_subreddits {
 	border-radius: 5px;
 	background: var(--post);
-	box-shadow: var(--shadow);
 	transition: 0.2s background;
 	border: var(--panel-border);
 	margin-bottom: 20px;
@@ -1003,7 +999,6 @@ a.search_subreddit:hover {
 .post {
 	border-radius: 5px;
 	background: var(--post);
-	box-shadow: var(--shadow);
 	display: grid;
 	transition: 0.2s background;
 	grid-template:
@@ -1741,7 +1736,6 @@ a.search_subreddit:hover {
 .prefs select,
 .prefs input[type="number"] {
 	border-radius: 5px;
-	box-shadow: var(--shadow);
 	margin-left: 20px;
 	background: var(--foreground);
 }
