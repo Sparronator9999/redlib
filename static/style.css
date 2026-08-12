@@ -2107,9 +2107,12 @@ th {
 		font-size: 14px;
 	}
 
+	.comment {
+		padding: 2px 0;
+	}
+
 	.replies > .comment {
 		margin-left: -12px;
-		padding: 5px 0;
 	}
 
 	.comment_left {
