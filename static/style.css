@@ -524,6 +524,12 @@ aside {
 	-webkit-align-items: center;
 	align-items: center;
 }
+#sub_members label,
+#sub_active label,
+#user_karma label,
+#user_created label {
+	color: var(--accent);
+}
 #sub_details,
 #user_details {
 	width: 100%;
