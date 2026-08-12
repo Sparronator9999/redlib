@@ -340,6 +340,33 @@ guarantee nginx waits for this service to start. Edit
 Before=nginx.service
 ```
 
+### Running using an OpenRC script
+
+You can use the OpenRC script available in `contrib/redlib.openrc`
+(install it to `/etc/init.d/redlib`) to run Redlib as a service on distros
+using OpenRC as their init system (e.g. Alpine, Gentoo).
+
+Like with the systemd service, Redlib can be configured with environment
+variables, however the file should be installed to `/etc/redlib-env.sh`,
+and should follow the template at `contrib/redlib-env.sh`.
+
+Unlike the systemd service, the listen address and port **must** be configured
+directly in the OpenRC script. This can be done by changing the value of
+`command_args` to `-a <ADDRESS> -p <PORT>`, replacing `<ADDRESS>` and `<PORT>`
+with the IP address and port you want Redlib to listen on, respectively.
+
+If proxying using NGINX (or another reverse proxy), you can modify the
+`depend()` function as follows to wait for it to start before Redlib does
+(replace `nginx` with your reverse proxy):
+
+```sh
+depend()
+{
+    need net
+    before nginx
+}
+```
+
 ## Building from source
 
 To deploy Redlib with changes not yet included in the latest release, you can build the application from source.

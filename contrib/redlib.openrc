@@ -1,0 +1,27 @@
+#!/sbin/openrc-run
+
+name=redlib
+description="redlib daemon"
+command="/usr/local/bin/redlib"
+command_background=true
+command_user="redlib:redlib"
+command_args="-a 127.0.0.1 -p 8022"
+error_log="/var/log/redlib.log"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+env_file="/etc/redlib-env.sh"
+
+start_pre()
+{
+    if [ -f "$env_file" ]; then
+        source "$env_file"
+    fi
+
+    # make sure log file has correct permissions
+    checkpath -f --owner "$command_user" --mode 0644 /var/log/redlib.log
+}
+
+depend()
+{
+    need net
+}
