@@ -452,7 +452,7 @@ pub async fn proxy_commit_info() -> Result<Response<Body>, String> {
 
 #[cached(ttl = 600)]
 async fn fetch_commit_info() -> String {
-	let url = "https://github.com/redlib-org/redlib/commits/main.atom";
+	let url = "https://github.com/Sparronator9999/redlib/commits/main.atom";
 
 	CLIENT.get(url).send().await.expect("Failed to request GitHub").text().await.expect("Failed to read body")
 }

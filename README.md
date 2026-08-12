@@ -1,4 +1,40 @@
-# Redlib
+# Redlib (Sparronator9999 fork)
+
+My personal fork of [Redlib](https://github.com/redlib-org/redlib), with various new features added.
+
+## Changes from upstream
+
+- Merged the following upstream PRs:
+  - Clean links - remove superfluous tracking elements from URLs ([#460](https://github.com/redlib-org/redlib/pull/460))
+  - fix(video): add support for CMAF video format alongside DASH ([#506](https://github.com/redlib-org/redlib/pull/506))
+  - feat(video): add RedGifs video support with proxy ([#507](https://github.com/redlib-org/redlib/pull/507))
+  - Improve searchbox outline when focusing ([#524](https://github.com/redlib-org/redlib/pull/524))
+  - Lazy load post images ([#539](https://github.com/redlib-org/redlib/pull/539))
+  - Prevent an out of bounds from trying to access comments\[0\].author.name when there are no comments ([#542](https://github.com/redlib-org/redlib/pull/542))
+  - fix: support rich:video (transcoded external media) and CMAF format ([#549](https://github.com/redlib-org/redlib/pull/549))
+  - Fix share links for a post on a user's profile ([#560](https://github.com/redlib-org/redlib/pull/560))
+  - feat: proxy and embed giphy gifs in comments ([#561](https://github.com/redlib-org/redlib/pull/561))
+- Added support for changing the number of posts displayed per page (when viewing subreddits or user posts).
+- Added support for limiting the depth of comment threads (when viewing an individual post).
+- Various CSS cleanups, compatibility fixes, and minor style changes, for example:
+  - Added a missing "submit" button to the "Search comments" search box.
+  - More compact comment threads, especially on mobile screens.
+  - Increased touch area for various hard-to-hit links/buttons.
+  - Reduced layout breakage on some older devices (i.e. [those without CSS grid support](https://caniuse.com/css-grid), and [those missing proper flexbox support](https://caniuse.com/flexbox)).
+  - Fixed speed controllers not being positioned properly for those using the [Video Speed Controller](https://github.com/codebicycle/videospeed) extension.
+- The settings page now redirects to the page you were on previously when pressing the "Save" button.
+- Fixed subscriptions and filters being deleted when updating preferences, using the provided solution from [this issue](https://github.com/redlib-org/redlib/issues/562).
+- Fixed post sort always defaulting to "hot", even if the instance is configured to default to another post sort.
+- Upgraded most dependencies to their latest versions.
+- Fixed `update_oauth_resources.sh`, based on patch provided in [this issue comment](https://github.com/redlib-org/redlib/issues/483#issuecomment-3284162224)
+- Updated OAuth resources, including Reddit app versions, Android versions, and wreq's spoofed user agents.
+  - **NOTE:** May increase fingerprinting of your instance unless most people adopt these changes.
+- Removed response compression support.
+  - Public instance users should already have Redlib behind a reverse proxy, which can apply compression itself. If brotli compression is still wanted, third-party modules exist for [nginx](https://github.com/google/ngx_brotli) and [Caddy](https://github.com/dunglas/caddy-cbrotli).
+  - I may add this feature back behind a compile-time flag if there is enough demand for it.
+- Linted and formatted the code base with clippy and rustfmt, and manually fixed formatting for HTML templates.
+
+## Original README
 
 > An alternative private front-end to Reddit, with its origins in [Libreddit](https://github.com/libreddit/libreddit).
 
@@ -64,7 +100,7 @@ For information on instance uptime, see the [Uptime Robot status page](https://s
 # About
 
 > [!NOTE]
-> Find Redlib on 💬 [Matrix](https://matrix.to/#/#redlib:matrix.org), 🐋 [Quay.io](https://quay.io/repository/redlib/redlib), :octocat: [GitHub](https://github.com/redlib-org/redlib), and 🦊 [GitLab](https://gitlab.com/redlib/redlib).
+> Find Redlib (upstream) on 💬 [Matrix](https://matrix.to/#/#redlib:matrix.org), 🐋 [Quay.io](https://quay.io/repository/redlib/redlib), :octocat: [GitHub](https://github.com/redlib-org/redlib), and 🦊 [GitLab](https://gitlab.com/redlib/redlib).
 
 Redlib hopes to provide an easier way to browse Reddit, without the ads, trackers, and bloat. Redlib was inspired by other alternative front-ends to popular services such as [Invidious](https://github.com/iv-org/invidious) for YouTube, [Nitter](https://github.com/zedeus/nitter) for Twitter, and [Bibliogram](https://sr.ht/~cadence/bibliogram/) for Instagram.
 
@@ -309,7 +345,7 @@ Before=nginx.service
 To deploy Redlib with changes not yet included in the latest release, you can build the application from source.
 
 ```bash
-git clone https://github.com/redlib-org/redlib && cd redlib
+git clone https://github.com/Sparronator9999/redlib && cd redlib
 cargo run
 ```
 
@@ -318,8 +354,8 @@ cargo run
 > [!WARNING]
 > These are free hosting options, but they are _not_ private and will monitor server usage to prevent abuse. If you need a free and easy setup, this method may work best for you.
 
-<a href="https://repl.it/github/redlib-org/redlib"><img src="https://repl.it/badge/github/redlib-org/redlib" alt="Run on Repl.it" height="32" /></a>
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/redlib-org/redlib)
+<a href="https://repl.it/github/Sparronator9999/redlib"><img src="https://repl.it/badge/github/Sparronator9999/redlib" alt="Run on Repl.it" height="32" /></a>
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Sparronator9999/redlib)
 
 ## launchd (macOS)
 

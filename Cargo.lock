@@ -1587,7 +1587,7 @@ dependencies = [
 
 [[package]]
 name = "redlib"
-version = "0.36.0"
+version = "0.36.0+sp9999-fork"
 dependencies = [
  "arc-swap",
  "askama",

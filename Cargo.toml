@@ -1,12 +1,13 @@
 [package]
 name = "redlib"
-description = " Alternative private front-end to Reddit"
+description = " Alternative private front-end to Reddit (Sparronator9999 fork)"
 license = "AGPL-3.0-only"
-repository = "https://github.com/redlib-org/redlib"
-version = "0.36.0"
+repository = "https://github.com/Sparronator9999/redlib"
+version = "0.36.0+sp9999-fork"
 authors = [
     "Matthew Esposito <matt+cargo@matthew.science>",
     "spikecodes <19519553+spikecodes@users.noreply.github.com>",
+    "Sparronator9999 <86388887+Sparronator9999@users.noreply.github.com>"
 ]
 edition = "2021"
 rust-version = "1.88"
