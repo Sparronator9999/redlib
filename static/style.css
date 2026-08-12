@@ -130,23 +130,14 @@ input {
 	word-wrap: anywhere;
 }
 
-html {
-	height: 100%;
-}
-
 body {
 	background: var(--background);
 	font-size: 15px;
 	position: relative;
-}
-
-body.card {
-	min-height: calc(100vh - 30px);
-}
-
-body.fixed_navbar {
-	min-height: calc(100vh - 90px);
-	padding-top: 60px;
+	display: -webkit-flex;
+	-webkit-flex-direction: column;
+	flex-direction: column;
+	min-height: 100vh;
 }
 
 nav {
@@ -361,6 +352,8 @@ main {
 	border-radius: 5px;
 	max-width: 750px;
 	overflow: inherit;
+	-webkit-flex: 1;
+	flex: 1;
 }
 
 /* Instance info footer. */
