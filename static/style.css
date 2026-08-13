@@ -1247,12 +1247,12 @@ a.search_subreddit:hover {
 
 .post_poll {
 	grid-area: post_poll;
-	padding: 5px 15px 5px 12px;
+	margin: 0 60px;
+	padding: 5px 0;
 }
 
 .poll_option {
 	position: relative;
-	margin-right: 15px;
 	margin-top: 14px;
 	z-index: 0;
 	display: -webkit-flex;
@@ -2076,6 +2076,7 @@ th {
 	.post_title,
 	.post_media_content,
 	.post_body,
+	.post_poll,
 	#post_url,
 	.post_footer {
 		margin-left: 15px;
@@ -2083,7 +2084,7 @@ th {
 	}
 
 	.post_poll {
-		padding: 5px 15px 10px 12px;
+		padding: 5px 0 10px;
 	}
 
 	.post_score {
