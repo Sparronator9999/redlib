@@ -92,7 +92,7 @@ pub async fn set(req: Request<Body>) -> Result<Response<Body>, String> {
 	let form = url::form_urlencoded::parse(&body_bytes).collect::<HashMap<_, _>>();
 
 	let mut response = match form.get("return_to") {
-		Some(value) => redirect(value),
+		Some(value) => if value.is_empty() { redirect("/settings") } else { redirect(value) },
 		None => redirect("/settings"),
 	};
 
