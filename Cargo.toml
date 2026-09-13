@@ -14,54 +14,54 @@ rust-version = "1.88"
 default-run = "redlib"
 
 [dependencies]
+arc-swap = "1.9.2"
 askama = { version = "0.16.0", default-features = false, features = [
     "std",
     "derive",
 ] }
+async-recursion = "1.1.1"
+base2048 = "2.0.2"
+base64 = "0.23.0"
+bincode = "1.3.3"
+build_html = "2.8.0"
 cached = { version = "2.0.0", features = ["async"] }
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 clap = { version = "4.6.5", default-features = false, features = [
     "std",
     "env",
     "derive",
 ] }
-regex = "1.13.1"
-serde = { version = "1.0.229", features = ["derive"] }
-cookie = "0.18.1"
-futures-lite = "2.6.1"
-hyper = { version = "0.14.32", features = ["full"] }
-percent-encoding = "2.3.2"
-route-recognizer = "0.3.1"
-serde_json = "1.0.151"
-tokio = { version = "1.53.1", features = ["full"] }
-time = { version = "0.3.55", features = ["local-offset"] }
-url = "2.5.8"
-rust-embed = { version = "8.12.0", features = ["include-exclude"] }
-libflate = "2.3.1"
-toml = "1.1.4"
-yaml_serde = "0.10"
-build_html = "2.8.0"
-uuid = { version = "1.24.0", features = ["v4"] }
-base64 = "0.23.0"
-fastrand = "2.5.0"
-log = "0.4.33"
-pretty_env_logger = "0.5.0"
-dotenvy = "0.15.7"
-rss = "2.1.0"
-arc-swap = "1.9.2"
-serde_json_path = "0.7.2"
-async-recursion = "1.1.1"
-pulldown-cmark = { version = "0.13.4", features = ["simd", "html"], default-features = false }
-tegen = "0.1.4"
-serde_urlencoded = "0.7.1"
-chrono = { version = "0.4.45", default-features = false, features = ["std"] }
-htmlescape = "0.3.1"
-bincode = "1.3.3"
-base2048 = "2.0.2"
-revision = "0.30.0"
-fake_user_agent = "0.2.3"
 clearurls = "0.0.4"
+cookie = "0.18.1"
+dotenvy = "0.15.7"
+fake_user_agent = "0.2.3"
+fastrand = "2.5.0"
+futures-lite = "2.6.1"
+htmlescape = "0.3.1"
+hyper = { version = "0.14.32", features = ["full"] }
+libflate = "2.3.1"
+log = "0.4.33"
+percent-encoding = "2.3.2"
+pretty_env_logger = "0.5.0"
+pulldown-cmark = { version = "0.13.4", features = ["simd", "html"], default-features = false }
+regex = "1.13.1"
+revision = "0.30.0"
+route-recognizer = "0.3.1"
+rss = "2.1.0"
+rust-embed = { version = "8.12.0", features = ["include-exclude"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+serde_json_path = "0.7.2"
+serde_urlencoded = "0.7.1"
+tegen = "0.1.4"
+time = { version = "0.3.55", features = ["local-offset"] }
+tokio = { version = "1.53.1", features = ["full"] }
+toml = "1.1.4"
+url = "2.5.8"
+uuid = { version = "1.24.0", features = ["v4"] }
 wreq = { version = "6.0.0-rc.29", features = ["brotli", "gzip", "deflate", "zstd", "json", "stream", "socks"] }
 wreq-util = "3.0.0-rc.14"
+yaml_serde = "0.10"
 
 [dev-dependencies]
 lipsum = "0.9.1"
