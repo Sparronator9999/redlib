@@ -2,6 +2,7 @@
 use crate::client::json;
 use crate::config::get_setting;
 use crate::server::RequestExt;
+use crate::shreddit;
 use crate::subreddit::{can_access_quarantine, quarantine};
 use crate::utils::{
 	clean_url, error, format_num, get_filters, nsfw_landing, param, parse_post, rewrite_emotes, setting, template, time, val, Author, Awards, Comment, Flair, FlairPart, Post,
@@ -31,13 +32,14 @@ static COMMENT_SEARCH_CAPTURE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\
 
 pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 	// Build Reddit API path
-	let mut params = req.uri().query().unwrap_or_default().to_string();
+	let path: String = format!("{}.json?{}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default());
+	let id = req.param("id").unwrap_or_default();
 	let sub = req.param("sub").unwrap_or_default();
 	let quarantined = can_access_quarantine(&req, &sub);
 	let url = req.uri().to_string();
 
 	// Set sort to sort query parameter
-	let sort = param(&params, "sort").unwrap_or_else(|| {
+	let sort = param(&path, "sort").unwrap_or_else(|| {
 		// Grab default comment sort method from Cookies
 		let default_sort = setting(&req, "comment_sort");
 
@@ -45,17 +47,15 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 		if default_sort.is_empty() {
 			String::new()
 		} else {
-			params.push_str(&format!("&sort={default_sort}"));
 			default_sort
 		}
 	});
 
-	let _depth = param(&params, "depth").unwrap_or_else(|| {
-		let default_depth: u32 = setting(&req, "max_comment_thread_depth").parse().unwrap_or(0);
+	let _depth = param(&path, "depth").unwrap_or_else(|| {
+		let default_depth: usize = setting(&req, "max_comment_thread_depth").parse().unwrap_or(0);
 		if default_depth < 1 {
 			String::new()
 		} else {
-			params.push_str(&format!("&depth={default_depth}"));
 			default_depth.to_string()
 		}
 	});
@@ -67,13 +67,16 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 	let single_thread = req.param("comment_id").is_some();
 	let highlighted_comment = &req.param("comment_id").unwrap_or_default();
 
-	// Send a request to the url, receive JSON in response
-	let path: String = format!("{}.json?{}&raw_json=1", req.uri().path().trim_end_matches("/"), params);
-	match json(path, quarantined).await {
-		// Otherwise, grab the JSON output from the request
+	// Reddit blocks the comments API for anonymous clients, so fetch the post
+	// by ID and its comments from the web frontend.
+	match json(format!("/by_id/t3_{id}.json?raw_json=1"), quarantined).await {
 		Ok(response) => {
+			let post_json = &response["data"]["children"][0];
+			if post_json.is_null() {
+				return error(req, "Post not found").await;
+			}
 			// Parse the JSON into Post and Comment structs
-			let mut post = parse_post(&response[0]["data"]["children"][0]).await;
+			let mut post = parse_post(post_json).await;
 
 			let clean_urls = setting(&req, "clean_urls");
 			if clean_urls == "on" {
@@ -88,6 +91,11 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 				return Ok(nsfw_landing(req, req_url).await.unwrap_or_default());
 			}
 
+			let comments_json = match shreddit::comments(post.community.clone(), id, req.param("comment_id"), sort.clone(), param(&url, "context")).await {
+				Ok(comments_json) => comments_json,
+				Err(msg) => return error(req, &msg).await,
+			};
+
 			let query_body = match COMMENT_SEARCH_CAPTURE.captures(&url) {
 				Some(captures) => captures.get(1).unwrap().as_str().replace("%20", " ").replace('+', " "),
 				None => String::new(),
@@ -98,9 +106,9 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 			let query = form.get("q").unwrap().clone().to_string();
 
 			let comments = match query.as_str() {
-				"" => parse_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &req),
+				"" => parse_comments(&comments_json, &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &req),
 				_ => query_comments(
-					&response[1],
+					&comments_json,
 					&post.permalink,
 					&post.author.name,
 					highlighted_comment,
