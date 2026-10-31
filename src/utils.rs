@@ -509,8 +509,10 @@ pub struct Comment {
 	pub collapsed: bool,
 	pub is_filtered: bool,
 	pub more_count: i64,
-	/// Query string of the post link that loads a scraped `more` placeholder; empty otherwise.
+	/// Where a `more` link leads without JavaScript; empty if it has nowhere to go.
 	pub more_href: String,
+	/// The page with just the comments a `more` cursor loads, which JavaScript inserts in place; empty without a cursor.
+	pub more_load: String,
 	pub prefs: Preferences,
 }
 
@@ -714,15 +716,16 @@ impl LegacyPreferences {
 			hide_score: old.hide_score,
 			remove_default_feeds: old.remove_default_feeds,
 			geo_filter: geo_filter.unwrap_or_else(|| defaults(Preferences::default_geo_filter)),
-			clean_urls: defaults(Preferences::default_clean_urls),
+			clean_urls: defaults(Preferences::default_off),
 			posts_per_page: defaults(Preferences::default_instance_setting),
 			max_comment_thread_depth: defaults(Preferences::default_instance_setting),
+			more_replies_new_page: defaults(Preferences::default_off),
 		})
 	}
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
-#[revisioned(revision = 2)]
+#[revisioned(revision = 3)]
 pub struct Preferences {
 	#[revision(start = 1)]
 	#[serde(skip_serializing, skip_deserializing)]
@@ -773,12 +776,15 @@ pub struct Preferences {
 	pub remove_default_feeds: String,
 	#[revision(start = 2, default_fn = "default_geo_filter")]
 	pub geo_filter: String,
-	#[revision(start = 2, default_fn = "default_clean_urls")]
+	#[revision(start = 2, default_fn = "default_off")]
 	pub clean_urls: String,
 	#[revision(start = 2, default_fn = "default_instance_setting")]
 	pub posts_per_page: String,
 	#[revision(start = 2, default_fn = "default_instance_setting")]
 	pub max_comment_thread_depth: String,
+	// Revision 2 codes are already out there, so new fields can't join it.
+	#[revision(start = 3, default_fn = "default_off")]
+	pub more_replies_new_page: String,
 }
 
 fn serialize_vec_with_plus<S>(vec: &[String], serializer: S) -> Result<S::Ok, S::Error>
@@ -841,6 +847,7 @@ impl Preferences {
 			clean_urls: setting(req, "clean_urls"),
 			posts_per_page: setting(req, "posts_per_page"),
 			max_comment_thread_depth: setting(req, "max_comment_thread_depth"),
+			more_replies_new_page: setting(req, "more_replies_new_page"),
 		}
 	}
 
@@ -879,7 +886,7 @@ impl Preferences {
 	fn default_instance_setting(_revision: u16) -> Result<String, Error> {
 		Ok(String::new())
 	}
-	fn default_clean_urls(_revision: u16) -> Result<String, Error> {
+	fn default_off(_revision: u16) -> Result<String, Error> {
 		Ok("off".to_owned())
 	}
 }
@@ -2159,10 +2166,11 @@ mod tests {
 			clean_urls: "off".to_owned(),
 			posts_per_page: "25".to_owned(),
 			max_comment_thread_depth: "-1".to_owned(),
+			more_replies_new_page: "on".to_owned(),
 		};
 		let urlencoded = serde_urlencoded::to_string(prefs).expect("Failed to serialize Prefs");
 
-		assert_eq!(urlencoded, "theme=laserwave&front_page=default&layout=compact&wide=on&blur_spoiler=on&show_nsfw=off&blur_nsfw=on&hide_hls_notification=off&video_quality=best&hide_sidebar_and_summary=off&use_hls=on&autoplay_videos=on&fixed_navbar=on&disable_visit_reddit_confirmation=on&comment_sort=confidence&post_sort=top&subscriptions=memes%2Bmildlyinteresting&filters=&hide_awards=off&hide_score=off&remove_default_feeds=off&geo_filter=GLOBAL&clean_urls=off&posts_per_page=25&max_comment_thread_depth=-1");
+		assert_eq!(urlencoded, "theme=laserwave&front_page=default&layout=compact&wide=on&blur_spoiler=on&show_nsfw=off&blur_nsfw=on&hide_hls_notification=off&video_quality=best&hide_sidebar_and_summary=off&use_hls=on&autoplay_videos=on&fixed_navbar=on&disable_visit_reddit_confirmation=on&comment_sort=confidence&post_sort=top&subscriptions=memes%2Bmildlyinteresting&filters=&hide_awards=off&hide_score=off&remove_default_feeds=off&geo_filter=GLOBAL&clean_urls=off&posts_per_page=25&max_comment_thread_depth=-1&more_replies_new_page=on");
 	}
 
 	#[test]
@@ -2337,7 +2345,7 @@ How`s your monitor by the way? Any IPS bleed whatsoever? I either got lucky or t
 	/// A code as the old plain-bincode exporter wrote it: upstream fields, optionally + geo_filter.
 	fn legacy_code(prefs: &Preferences, with_geo: bool) -> Vec<u8> {
 		let mut bytes = bincode::serialize(prefs).unwrap();
-		let newer = (&prefs.clean_urls, &prefs.posts_per_page, &prefs.max_comment_thread_depth);
+		let newer = (&prefs.clean_urls, &prefs.posts_per_page, &prefs.max_comment_thread_depth, &prefs.more_replies_new_page);
 		let mut cut = bincode::serialized_size(&newer).unwrap() as usize;
 		if !with_geo {
 			cut += bincode::serialized_size(&prefs.geo_filter).unwrap() as usize;
@@ -2356,6 +2364,7 @@ How`s your monitor by the way? Any IPS bleed whatsoever? I either got lucky or t
 			clean_urls: "on".to_owned(),
 			posts_per_page: "50".to_owned(),
 			max_comment_thread_depth: "3".to_owned(),
+			more_replies_new_page: "on".to_owned(),
 			..Preferences::default()
 		}
 	}
@@ -2371,6 +2380,7 @@ How`s your monitor by the way? Any IPS bleed whatsoever? I either got lucky or t
 		assert_eq!(decoded.clean_urls, "off");
 		assert_eq!(decoded.posts_per_page, "");
 		assert_eq!(decoded.max_comment_thread_depth, "");
+		assert_eq!(decoded.more_replies_new_page, "off");
 	}
 
 	#[test]
@@ -2378,6 +2388,21 @@ How`s your monitor by the way? Any IPS bleed whatsoever? I either got lucky or t
 		let decoded = Preferences::from_bincode(&legacy_code(&sample_prefs(), true)).unwrap();
 		assert_eq!(decoded.geo_filter, "CH");
 		assert_eq!(decoded.clean_urls, "off");
+	}
+
+	#[test]
+	fn test_revision_2_code_gets_defaults_for_newer_fields() {
+		// sample_prefs() as exported before revision 3
+		let code = "ϿςഔºņÀγºಢȋĘ௦Ģઙėऑଓਨҕ۲۲ઑၔͰâȆҬÕΪ༃ՌПษϡઓචฆཇგႣၮഌౘ૪അ༎";
+		let bytes = deflate_decompress(base2048::decode(code).unwrap()).unwrap();
+		let decoded = Preferences::from_bincode(&bytes).unwrap();
+		assert_eq!(
+			decoded,
+			Preferences {
+				more_replies_new_page: "off".to_owned(),
+				..sample_prefs()
+			}
+		);
 	}
 
 	#[test]

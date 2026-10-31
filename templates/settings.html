@@ -86,28 +86,33 @@
 						<label for="max_comment_thread_depth">Comment thread depth limit (0 to disable):</label>
 						<input type="number" name="max_comment_thread_depth" id="max_comment_thread_depth" min="0" value="{% if prefs.max_comment_thread_depth.is_empty() %}0{% else %}{{ prefs.max_comment_thread_depth }}{% endif %}">
 					</div>
-					<div class="prefs-group">
-						<label for="blur_spoiler">Blur spoiler previews:</label>
-						<input type="hidden" value="off" name="blur_spoiler">
-						<input type="checkbox" name="blur_spoiler" id="blur_spoiler" {% if prefs.blur_spoiler=="on" %}checked{% endif %}>
-					</div>
-					{% if !crate::utils::sfw_only() %}
-						<div class="prefs-group">
-							<label for="show_nsfw">Show NSFW posts:</label>
-							<input type="hidden" value="off" name="show_nsfw">
-							<input type="checkbox" name="show_nsfw" id="show_nsfw" {% if prefs.show_nsfw=="on" %}checked{% endif %}>
-						</div>
+				    <div class="prefs-group">
+				        <label for="more_replies_new_page">Always open replies in thread view:</label>
+				        <input type="hidden" value="off" name="more_replies_new_page">
+				        <input type="checkbox" name="more_replies_new_page" id="more_replies_new_page" {% if prefs.more_replies_new_page=="on" %}checked{% endif %}>
+				    </div>
+				    <div class="prefs-group">
+				    	<label for="blur_spoiler">Blur spoiler previews:</label>
+				    	<input type="hidden" value="off" name="blur_spoiler">
+				    	<input type="checkbox" name="blur_spoiler" id="blur_spoiler" {% if prefs.blur_spoiler=="on" %}checked{% endif %}>
+				    </div>
+				    {% if !crate::utils::sfw_only() %}
+				        <div class="prefs-group">
+				        	<label for="show_nsfw">Show NSFW posts:</label>
+				        	<input type="hidden" value="off" name="show_nsfw">
+				        	<input type="checkbox" name="show_nsfw" id="show_nsfw" {% if prefs.show_nsfw=="on" %}checked{% endif %}>
+				        </div>
 						<div class="prefs-group">
 							<label for="blur_nsfw">Blur NSFW previews:</label>
 							<input type="hidden" value="off" name="blur_nsfw">
 							<input type="checkbox" name="blur_nsfw" id="blur_nsfw" {% if prefs.blur_nsfw=="on" %}checked{% endif %}>
 						</div>
-					{% endif %}
-					<div class="prefs-group">
-						<label for="autoplay_videos">Autoplay videos</label>
-						<input type="hidden" value="off" name="autoplay_videos">
-						<input type="checkbox" name="autoplay_videos" id="autoplay_videos" {% if prefs.autoplay_videos=="on" %}checked{% endif %}>
-					</div>
+				                    {% endif %}
+				                    <div class="prefs-group">
+				                    	<label for="autoplay_videos">Autoplay videos</label>
+				                    	<input type="hidden" value="off" name="autoplay_videos">
+				                    	<input type="checkbox" name="autoplay_videos" id="autoplay_videos" {% if prefs.autoplay_videos=="on" %}checked{% endif %}>
+				                    </div>
 					<div class="prefs-group">
 						<label for="fixed_navbar">Keep navbar fixed</label>
 						<input type="hidden" value="off" name="fixed_navbar">

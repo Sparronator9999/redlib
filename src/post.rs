@@ -56,7 +56,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 		}
 	});
 
-	let _depth = param(&format!("?{params}"), "depth").unwrap_or_else(|| {
+	let depth = param(&format!("?{params}"), "depth").unwrap_or_else(|| {
 		let default_depth: u32 = setting(&req, "max_comment_thread_depth").parse().unwrap_or(0);
 		if default_depth < 1 {
 			String::new()
@@ -77,7 +77,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	// Send a request to the url, receive JSON in response
 	let path: String = format!("{}.json?{}&raw_json=1", req.uri().path().trim_end_matches("/"), params);
-	let response = match backends::fetch(path, quarantined).await {
+	let mut response = match backends::fetch(path, quarantined).await {
 		Ok((response, backend)) => {
 			reddit_health::record(if backend == "scraped" { Outcome::Scraped } else { Outcome::Ok });
 			response
@@ -119,6 +119,9 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 	let form = url::form_urlencoded::parse(query_string.as_bytes()).collect::<HashMap<_, _>>();
 	let query = form.get("q").unwrap().clone().to_string();
 
+	if let Some(listing) = response.get_mut(1) {
+		limit_depth(listing, depth.parse().unwrap_or(0));
+	}
 	let comments = match query.as_str() {
 		"" => parse_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &req),
 		_ => query_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &query, &req),
@@ -200,6 +203,33 @@ fn collect_rss_comments(listing: &serde_json::Value, link_title: &str, items: &m
 }
 
 // COMMENTS
+
+/// Cuts the comment tree below `depth` levels (0 keeps all) and leaves the
+/// "continue this thread" stub Reddit's JSON API puts there for its own
+/// `depth` parameter, which links to the cut comment's thread. Not every
+/// backend honours that parameter.
+fn limit_depth(listing: &mut serde_json::Value, depth: usize) {
+	if depth == 0 {
+		return;
+	}
+	for data in listing
+		.pointer_mut("/data/children")
+		.and_then(serde_json::Value::as_array_mut)
+		.into_iter()
+		.flatten()
+		.filter_map(|comment| comment.get_mut("data"))
+	{
+		if !data["replies"]["data"]["children"].as_array().is_some_and(|replies| !replies.is_empty()) {
+			continue;
+		}
+		if depth > 1 {
+			limit_depth(&mut data["replies"], depth - 1);
+		} else {
+			let parent_id = format!("t1_{}", data["id"].as_str().unwrap_or_default());
+			data["replies"]["data"]["children"] = serde_json::json!([{ "kind": "more", "data": { "count": 0, "id": "_", "parent_id": parent_id, "children": [] } }]);
+		}
+	}
+}
 
 pub(crate) fn parse_comments(
 	json: &serde_json::Value,
@@ -310,13 +340,12 @@ fn build_comment(
 	// Note that in certain (seemingly random) cases, the count is simply wrong.
 	let more_count = data["count"].as_i64().unwrap_or_default();
 
-	// Scraped comments carry what loads them: the query string of a post
-	// link that loads just this placeholder.
-	let more_href = data["cursor"].as_str().filter(|cursor| !cursor.is_empty()).map_or(String::new(), |cursor| {
-		url::form_urlencoded::Serializer::new(String::new())
+	let more_load = data["cursor"].as_str().filter(|cursor| !cursor.is_empty()).map_or(String::new(), |cursor| {
+		let query = url::form_urlencoded::Serializer::new(String::new())
 			.append_pair("more_cursor", cursor)
 			.append_pair("more_query", data["more_query"].as_str().unwrap_or_default())
-			.finish()
+			.finish();
+		format!("{post_link}?{query}")
 	});
 
 	let awards: Awards = Awards::parse(&data["all_awardings"]);
@@ -325,6 +354,7 @@ fn build_comment(
 	let parent_info = parent_kind_and_id.split('_').collect::<Vec<&str>>();
 
 	let highlighted = id == highlighted_comment;
+	let more_href = more_href(post_link, parent_info[0], parent_info[1], highlighted_comment, &more_load);
 
 	let author = Author {
 		name: val(comment, "author"),
@@ -374,13 +404,66 @@ fn build_comment(
 		is_filtered,
 		more_count,
 		more_href,
+		more_load,
 		prefs: Preferences::new(req),
+	}
+}
+
+/// Where a "more" link leads without JavaScript: the parent comment's thread,
+/// which shows it with its replies, unless that is the page already open.
+fn more_href(post_link: &str, parent_kind: &str, parent_id: &str, highlighted_comment: &str, more_load: &str) -> String {
+	if parent_kind == "t1" && (parent_id != highlighted_comment || more_load.is_empty()) {
+		format!("{post_link}{parent_id}/#thread_nav")
+	} else {
+		more_load.to_string()
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	fn comment(id: &str, replies: Vec<serde_json::Value>) -> serde_json::Value {
+		serde_json::json!({ "kind": "t1", "data": { "id": id, "replies": listing(replies) } })
+	}
+
+	fn listing(children: Vec<serde_json::Value>) -> serde_json::Value {
+		serde_json::json!({ "kind": "Listing", "data": { "children": children } })
+	}
+
+	fn tree() -> serde_json::Value {
+		listing(vec![comment("a", vec![comment("b", vec![comment("c", vec![])])]), comment("d", vec![])])
+	}
+
+	#[test]
+	fn test_limit_depth() {
+		limit_depth(&mut serde_json::json!(""), 1);
+
+		let mut unlimited = tree();
+		limit_depth(&mut unlimited, 0);
+		assert_eq!(unlimited, tree());
+
+		let mut deep_enough = tree();
+		limit_depth(&mut deep_enough, 3);
+		assert_eq!(deep_enough, tree());
+
+		let mut top_level = tree();
+		limit_depth(&mut top_level, 1);
+		let a = &top_level["data"]["children"][0]["data"];
+		assert_eq!(
+			a["replies"]["data"]["children"],
+			serde_json::json!([{ "kind": "more", "data": { "count": 0, "id": "_", "parent_id": "t1_a", "children": [] } }])
+		);
+		// Comments without replies get no stub
+		assert_eq!(top_level["data"]["children"][1], comment("d", vec![]));
+
+		let mut two = tree();
+		limit_depth(&mut two, 2);
+		let b = &two["data"]["children"][0]["data"]["replies"]["data"]["children"][0];
+		assert_eq!(b["data"]["id"], "b");
+		assert_eq!(b["data"]["replies"]["data"]["children"][0]["kind"], "more");
+		assert_eq!(b["data"]["replies"]["data"]["children"][0]["data"]["parent_id"], "t1_b");
+	}
 
 	#[test]
 	fn test_gone_comment() {
@@ -389,5 +472,19 @@ mod tests {
 		assert_eq!(gone_comment("someone", "[ Removed by Reddit ]"), Some("removed"));
 		assert_eq!(gone_comment("someone", "[deleted]"), None);
 		assert_eq!(gone_comment("[deleted]", "hi"), None);
+	}
+
+	#[test]
+	fn test_more_href() {
+		let post = "/r/rust/comments/abc/x/";
+		let load = "/r/rust/comments/abc/x/?more_cursor=c&more_query=gql";
+		assert_eq!(more_href(post, "t1", "p1", "", load), "/r/rust/comments/abc/x/p1/#thread_nav");
+		assert_eq!(more_href(post, "t1", "p1", "", ""), "/r/rust/comments/abc/x/p1/#thread_nav");
+		assert_eq!(more_href(post, "t1", "p1", "other", load), "/r/rust/comments/abc/x/p1/#thread_nav");
+		// Linking to the open thread again would reload the same batch
+		assert_eq!(more_href(post, "t1", "p1", "p1", load), load);
+		assert_eq!(more_href(post, "t1", "p1", "p1", ""), "/r/rust/comments/abc/x/p1/#thread_nav");
+		assert_eq!(more_href(post, "t3", "abc", "", load), load);
+		assert_eq!(more_href(post, "t3", "abc", "", ""), "");
 	}
 }

@@ -82,28 +82,32 @@
 			</form>
 		</div>
 
-		{% if comment_query != "" %}
-			<div>
-				Comments containing "{{ comment_query }}"&nbsp;|&nbsp;<a id="allCommentsLink" href="{{ url_without_query }}">All comments</a>
-			</div>
-		{% endif %}
+		<div id="comments">
+			{% if comment_query != "" %}
+				<div>
+					Comments containing "{{ comment_query }}"&nbsp;|&nbsp;<a id="allCommentsLink" href="{{ url_without_query }}">All comments</a>
+				</div>
+			{% endif %}
 
-		<!-- COMMENTS -->
-		{% if more_page %}
-			<p class="thread_nav"><a href="{{ post.permalink }}">View all comments</a></p>
-		{% endif %}
-		{% for c in comments -%}
-			<div class="thread">
-				{% if single_thread %}
-					<p class="thread_nav"><a href="{{ post.permalink }}">View all comments</a></p>
-					{% if c.parent_kind == "t1" %}
-						<p class="thread_nav"><a href="?context=9999">Show parent comments</a></p>
+			<!-- COMMENTS -->
+			{% if more_page %}
+				<p class="thread_nav" id="thread_nav"><a href="{{ post.permalink }}">View all comments</a></p>
+					{% if !comments.is_empty() && comments[0].parent_kind == "t1" %}
+						<p class="thread_nav"><a href="{{ post.permalink }}{{ comments[0].parent_id }}/#thread_nav">Show parent comment</a></p>
 					{% endif %}
 				{% endif %}
+			{% for c in comments -%}
+				<div class="thread">
+					{% if single_thread %}
+						<p class="thread_nav" id="thread_nav"><a href="{{ post.permalink }}">View all comments</a></p>
+						{% if c.parent_kind == "t1" %}
+							<p class="thread_nav"><a href="{{ post.permalink }}{{ c.parent_id }}/#thread_nav">Show parent comment</a></p>
+						{% endif %}
+					{% endif %}
 
-				{{ c.render().unwrap()|safe }}
-			</div>
-		{%- endfor %}
-
+					{{ c.render().unwrap()|safe }}
+				</div>
+			{%- endfor %}
+		</div>
 	</div>
 {% endblock %}

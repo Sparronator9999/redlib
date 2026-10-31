@@ -176,6 +176,7 @@ Assign a default value for each user-modifiable setting by passing environment v
 | `CLEAN_URLS`                        | `["on", "off"]`                                                                                                                                                                                                                 | `off`         |
 | `POSTS_PER_PAGE`                    | Integer 1-100                                                                                                                                                                                                                   | 25            |
 | `MAX_COMMENT_THREAD_DEPTH`          | Unsigned integer (0 = unlimited/Reddit default)                                                                                                                                                                                 | 0             |
+| `MORE_REPLIES_NEW_PAGE`             | `["on", "off"]`                                                                                                                                                                                                                 | `off`         |
 
 ## Forward proxies
 

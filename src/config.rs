@@ -140,6 +140,9 @@ pub struct Config {
 	#[serde(rename = "REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH")]
 	pub(crate) default_max_comment_thread_depth: Option<String>,
 
+	#[serde(rename = "REDLIB_DEFAULT_MORE_REPLIES_NEW_PAGE")]
+	pub(crate) default_more_replies_new_page: Option<String>,
+
 	/// A logged-in Reddit web session, sent as the `Cookie` header on requests
 	/// Reddit refuses to serve to logged-out clients.
 	///
@@ -288,6 +291,7 @@ impl Config {
 			default_clean_urls: parse("REDLIB_DEFAULT_CLEAN_URLS"),
 			default_posts_per_page: parse("REDLIB_DEFAULT_POSTS_PER_PAGE"),
 			default_max_comment_thread_depth: parse("REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH"),
+			default_more_replies_new_page: parse("REDLIB_DEFAULT_MORE_REPLIES_NEW_PAGE"),
 			reddit_cookie: parse("REDLIB_REDDIT_COOKIE"),
 			reddit_cookie_file: parse("REDLIB_REDDIT_COOKIE_FILE"),
 			stale_cache_mb: parse("REDLIB_STALE_CACHE_MB"),
@@ -348,6 +352,7 @@ fn get_setting_from_config(name: &str, config: &Config) -> Option<String> {
 		"REDLIB_DEFAULT_CLEAN_URLS" => config.default_clean_urls.clone(),
 		"REDLIB_DEFAULT_POSTS_PER_PAGE" => config.default_posts_per_page.clone(),
 		"REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH" => config.default_max_comment_thread_depth.clone(),
+		"REDLIB_DEFAULT_MORE_REPLIES_NEW_PAGE" => config.default_more_replies_new_page.clone(),
 		"REDLIB_REDDIT_COOKIE" => config.reddit_cookie.clone(),
 		"REDLIB_REDDIT_COOKIE_FILE" => config.reddit_cookie_file.clone(),
 		"REDLIB_STALE_CACHE_MB" => config.stale_cache_mb.clone(),

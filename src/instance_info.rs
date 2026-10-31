@@ -174,6 +174,7 @@ impl InstanceInfo {
 				["Clean URLs", &effective(&self.config.default_clean_urls, "off")],
 				["Posts per page", &effective(&self.config.default_posts_per_page, "25")],
 				["Max comment thread depth", &effective(&self.config.default_max_comment_thread_depth, "0")],
+				["Always open replies in thread view", &effective(&self.config.default_more_replies_new_page, "off")],
 			])
 			.with_header_row(["Default preferences"]),
 		);

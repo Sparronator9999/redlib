@@ -109,6 +109,9 @@
     },
     "REDLIB_DEFAULT_GEO_FILTER": {
       "required": false
+    },
+    "REDLIB_DEFAULT_MORE_REPLIES_NEW_PAGE": {
+        "required": false
     }
   }
 }
