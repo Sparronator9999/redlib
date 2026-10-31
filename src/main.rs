@@ -21,57 +21,47 @@ use redlib::client::OAUTH_CLIENT;
 
 // Required for the manifest to be valid
 async fn pwa_logo() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "image/png")
-			.body(include_bytes!("../static/logo.png").as_ref().into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "image/png")
+		.body(include_bytes!("../static/logo.png").as_ref().into())
+		.unwrap_or_default())
 }
 
 // Required for iOS App Icons
 async fn iphone_logo() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "image/png")
-			.body(include_bytes!("../static/apple-touch-icon.png").as_ref().into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "image/png")
+		.body(include_bytes!("../static/apple-touch-icon.png").as_ref().into())
+		.unwrap_or_default())
 }
 
 async fn favicon() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "image/vnd.microsoft.icon")
-			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-			.body(include_bytes!("../static/favicon.ico").as_ref().into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "image/vnd.microsoft.icon")
+		.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
+		.body(include_bytes!("../static/favicon.ico").as_ref().into())
+		.unwrap_or_default())
 }
 
 async fn font() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "font/woff2")
-			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-			.body(include_bytes!("../static/Inter.var.woff2").as_ref().into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "font/woff2")
+		.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
+		.body(include_bytes!("../static/Inter.var.woff2").as_ref().into())
+		.unwrap_or_default())
 }
 
 async fn opensearch() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "application/opensearchdescription+xml")
-			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-			.body(include_bytes!("../static/opensearch.xml").as_ref().into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "application/opensearchdescription+xml")
+		.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
+		.body(include_bytes!("../static/opensearch.xml").as_ref().into())
+		.unwrap_or_default())
 }
 
 async fn resource(body: &str, content_type: &str, cache: bool) -> Result<Response<Body>, String> {
@@ -93,25 +83,21 @@ async fn resource(body: &str, content_type: &str, cache: bool) -> Result<Respons
 /// 503 when most recent post requests were blocked by Reddit, for status checks.
 async fn reddit_health() -> Result<Response<Body>, String> {
 	let (healthy, summary) = redlib::reddit_health::status();
-	Ok(
-		Response::builder()
-			.status(if healthy { 200 } else { 503 })
-			.header("content-type", "text/plain")
-			.header("Cache-Control", "no-store")
-			.body(summary.into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.status(if healthy { 200 } else { 503 })
+		.header("content-type", "text/plain")
+		.header("Cache-Control", "no-store")
+		.body(summary.into())
+		.unwrap_or_default())
 }
 
 /// shields.io endpoint badge of the same status, always 200 so shields renders it.
 async fn reddit_badge() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.header("content-type", "application/json")
-			.header("Cache-Control", "no-store")
-			.body(redlib::reddit_health::badge().into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.header("content-type", "application/json")
+		.header("Cache-Control", "no-store")
+		.body(redlib::reddit_health::badge().into())
+		.unwrap_or_default())
 }
 
 async fn style() -> Result<Response<Body>, String> {
@@ -121,14 +107,12 @@ async fn style() -> Result<Response<Body>, String> {
 		let theme = ThemeAssets::get(file.as_ref()).unwrap();
 		res.push_str(std::str::from_utf8(theme.data.as_ref()).unwrap());
 	}
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "text/css")
-			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-			.body(res.to_string().into())
-			.unwrap_or_default(),
-	)
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "text/css")
+		.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
+		.body(res.to_string().into())
+		.unwrap_or_default())
 }
 
 #[tokio::main]
@@ -250,8 +234,7 @@ async fn main() {
 
 	// Read static files
 	app.at("/style.css").get(|_| style().boxed());
-	app
-		.at("/manifest.json")
+	app.at("/manifest.json")
 		.get(|_| resource(include_str!("../static/manifest.json"), "application/json", false).boxed());
 	app.at("/robots.txt").get(|_| {
 		resource(
@@ -274,59 +257,57 @@ async fn main() {
 	app.at("/touch-icon-iphone.png").get(|_| iphone_logo().boxed());
 	app.at("/apple-touch-icon.png").get(|_| iphone_logo().boxed());
 	app.at("/opensearch.xml").get(|_| opensearch().boxed());
-	app
-		.at("/playHLSVideo.js")
+	app.at("/playHLSVideo.js")
 		.get(|_| resource(include_str!("../static/playHLSVideo.js"), "text/javascript", false).boxed());
-	app
-		.at("/autoplayVisible.js")
+	app.at("/autoplayVisible.js")
 		.get(|_| resource(include_str!("../static/autoplayVisible.js"), "text/javascript", false).boxed());
-	app
-		.at("/hls.min.js")
+	app.at("/hls.min.js")
 		.get(|_| resource(include_str!("../static/hls.min.js"), "text/javascript", false).boxed());
-	app
-		.at("/highlighted.js")
+	app.at("/highlighted.js")
 		.get(|_| resource(include_str!("../static/highlighted.js"), "text/javascript", false).boxed());
-	app
-		.at("/check_update.js")
+	app.at("/check_update.js")
 		.get(|_| resource(include_str!("../static/check_update.js"), "text/javascript", false).boxed());
-	app.at("/copy.js").get(|_| resource(include_str!("../static/copy.js"), "text/javascript", false).boxed());
-	app
-		.at("/static/keyboardcommands.js")
+	app.at("/copy.js")
+		.get(|_| resource(include_str!("../static/copy.js"), "text/javascript", false).boxed());
+	app.at("/static/keyboardcommands.js")
 		.get(|_| resource(include_str!("../static/keyboardcommands.js"), "text/javascript", false).boxed());
-	app
-		.at("/downloadGallery.js")
+	app.at("/downloadGallery.js")
 		.get(|_| resource(include_str!("../static/downloadGallery.js"), "text/javascript", false).boxed());
-	app
-		.at("/loadMoreComments.js")
+	app.at("/loadMoreComments.js")
 		.get(|_| resource(include_str!("../static/loadMoreComments.js"), "text/javascript", false).boxed());
-	app
-		.at("/searchTabs.js")
+	app.at("/searchTabs.js")
 		.get(|_| resource(include_str!("../static/searchTabs.js"), "text/javascript", false).boxed());
 
 	app.at("/commits.atom").get(|_| async move { proxy_commit_info().await }.boxed());
 	app.at("/instances.json").get(|_| async move { proxy_instances().await }.boxed());
 
 	// Proxy media through Redlib
-	app.at("/vid/:id/:prefix/:size").get(|r| proxy(r, "https://v.redd.it/{id}/{prefix}_{size}").boxed());
+	app.at("/vid/:id/:prefix/:size")
+		.get(|r| proxy(r, "https://v.redd.it/{id}/{prefix}_{size}").boxed());
 	app.at("/hls/:id/*path").get(|r| proxy(r, "https://v.redd.it/{id}/{path}").boxed());
 	app.at("/packaged/*path").get(|r| proxy(r, "https://packaged-media.redd.it/{path}").boxed());
-	app
-		.at("/packaged-external/*path")
+	app.at("/packaged-external/*path")
 		.get(|r| proxy(r, "https://external-packaged-media.redd.it/{path}").boxed());
 	app.at("/img/*path").get(|r| proxy(r, "https://i.redd.it/{path}").boxed());
-	app.at("/thumb/:point/:id").get(|r| proxy(r, "https://{point}.thumbs.redditmedia.com/{id}").boxed());
-	app.at("/emoji/:id/:name").get(|r| proxy(r, "https://emoji.redditmedia.com/{id}/{name}").boxed());
-	app
-		.at("/emote/:subreddit_id/:filename")
-		.get(|r| proxy(r, "https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/{subreddit_id}/{filename}").boxed());
-	app
-		.at("/preview/:loc/award_images/:fullname/:id")
+	app.at("/thumb/:point/:id")
+		.get(|r| proxy(r, "https://{point}.thumbs.redditmedia.com/{id}").boxed());
+	app.at("/emoji/:id/:name")
+		.get(|r| proxy(r, "https://emoji.redditmedia.com/{id}/{name}").boxed());
+	app.at("/emote/:subreddit_id/:filename").get(|r| {
+		proxy(
+			r,
+			"https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/{subreddit_id}/{filename}",
+		)
+		.boxed()
+	});
+	app.at("/preview/:loc/award_images/:fullname/:id")
 		.get(|r| proxy(r, "https://{loc}view.redd.it/award_images/{fullname}/{id}").boxed());
 	app.at("/preview/:loc/:id").get(|r| proxy(r, "https://{loc}view.redd.it/{id}").boxed());
 	app.at("/style/*path").get(|r| proxy(r, "https://styles.redditmedia.com/{path}").boxed());
 	app.at("/static/*path").get(|r| proxy(r, "https://www.redditstatic.com/{path}").boxed());
 	if redlib::utils::enable_giphy() {
-		app.at("/giphy/:id/:ext").get(|r| proxy(r, "https://media.giphy.com/media/{id}/giphy.{ext}").boxed());
+		app.at("/giphy/:id/:ext")
+			.get(|r| proxy(r, "https://media.giphy.com/media/{id}/giphy.{ext}").boxed());
 	}
 
 	if redlib::utils::enable_redgifs() {
@@ -334,8 +315,7 @@ async fn main() {
 	}
 
 	// Browse user profile
-	app
-		.at("/u/:name")
+	app.at("/u/:name")
 		.get(|r| async move { Ok(redirect(&format!("/user/{}", r.param("name").unwrap_or_default()))) }.boxed());
 	app.at("/u/:name/comments/:id/:title").get(|r| post::item(r).boxed());
 	app.at("/u/:name/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed());
@@ -373,13 +353,11 @@ async fn main() {
 	app.at("/search.rss").get(|r| search::rss(r).boxed());
 
 	// Subreddit services
-	app
-		.at("/r/:sub")
+	app.at("/r/:sub")
 		.get(|r| subreddit::community(r).boxed())
 		.post(|r| subreddit::add_quarantine_exception(r).boxed());
 
-	app
-		.at("/r/u_:name")
+	app.at("/r/u_:name")
 		.get(|r| async move { Ok(redirect(&format!("/user/{}", r.param("name").unwrap_or_default()))) }.boxed());
 
 	app.at("/r/:sub/subscribe").post(|r| subreddit::subscriptions_filters(r).boxed());
@@ -403,12 +381,18 @@ async fn main() {
 
 	app.at("/r/:sub/search").get(|r| search::find(r).boxed());
 
-	app
-		.at("/r/:sub/w")
+	app.at("/r/:sub/w")
 		.get(|r| async move { Ok(redirect(&format!("/r/{}/wiki", r.param("sub").unwrap_or_default()))) }.boxed());
-	app
-		.at("/r/:sub/w/*page")
-		.get(|r| async move { Ok(redirect(&format!("/r/{}/wiki/{}", r.param("sub").unwrap_or_default(), r.param("wiki").unwrap_or_default()))) }.boxed());
+	app.at("/r/:sub/w/*page").get(|r| {
+		async move {
+			Ok(redirect(&format!(
+				"/r/{}/wiki/{}",
+				r.param("sub").unwrap_or_default(),
+				r.param("wiki").unwrap_or_default()
+			)))
+		}
+		.boxed()
+	});
 	app.at("/r/:sub/wiki").get(|r| subreddit::wiki(r).boxed());
 	app.at("/r/:sub/wiki/*page").get(|r| subreddit::wiki(r).boxed());
 
@@ -421,8 +405,7 @@ async fn main() {
 
 	// View Reddit wiki
 	app.at("/w").get(|_| async { Ok(redirect("/wiki")) }.boxed());
-	app
-		.at("/w/*page")
+	app.at("/w/*page")
 		.get(|r| async move { Ok(redirect(&format!("/wiki/{}", r.param("page").unwrap_or_default()))) }.boxed());
 	app.at("/wiki").get(|r| subreddit::wiki(r).boxed());
 	app.at("/wiki/*page").get(|r| subreddit::wiki(r).boxed());
@@ -525,7 +508,13 @@ async fn fetch_instances() -> Result<String, String> {
 }
 
 async fn fetch_text(url: &str) -> Result<String, String> {
-	let response = CLIENT.load_full().get(url).send().await.and_then(|r| r.error_for_status()).map_err(|e| e.to_string())?;
+	let response = CLIENT
+		.load_full()
+		.get(url)
+		.send()
+		.await
+		.and_then(|r| r.error_for_status())
+		.map_err(|e| e.to_string())?;
 	response.text().await.map_err(|e| e.to_string())
 }
 

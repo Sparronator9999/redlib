@@ -216,7 +216,11 @@ impl Media {
 			)
 		} else if crosspost_parent_media["fallback_url"].is_string() {
 			(
-				if crosspost_parent_media["is_gif"].as_bool().unwrap_or(false) { "gif" } else { "video" },
+				if crosspost_parent_media["is_gif"].as_bool().unwrap_or(false) {
+					"gif"
+				} else {
+					"video"
+				},
 				&crosspost_parent_media["fallback_url"],
 				Some(crosspost_parent_media),
 			)
@@ -271,8 +275,10 @@ impl Media {
 		let alt_url = video.map_or(String::new(), |video| format_url(video["hls_url"].as_str().unwrap_or_default()));
 		let url = format_url(url_val.as_str().unwrap_or_default());
 		// Only the muxed MP4s from packaged media have sound without HLS
-		let needs_hls_for_audio =
-			post_type == "video" && !alt_url.is_empty() && !url.starts_with("/packaged") && video.is_some_and(|video| video["has_audio"].as_bool() != Some(false));
+		let needs_hls_for_audio = post_type == "video"
+			&& !alt_url.is_empty()
+			&& !url.starts_with("/packaged")
+			&& video.is_some_and(|video| video["has_audio"].as_bool() != Some(false));
 
 		let download_name = if post_type == "image" || post_type == "gif" || post_type == "video" {
 			let permalink_base = url_path_basename(data["permalink"].as_str().unwrap_or_default());
@@ -898,7 +904,11 @@ pub fn deflate_decompress(i: Vec<u8>) -> Result<Vec<u8>, String> {
 
 /// Gets a `HashSet` of filters from the cookie in the given `Request`.
 pub fn get_filters(req: &Request<Body>) -> HashSet<String> {
-	setting(req, "filters").split('+').map(String::from).filter(|s| !s.is_empty()).collect::<HashSet<String>>()
+	setting(req, "filters")
+		.split('+')
+		.map(String::from)
+		.filter(|s| !s.is_empty())
+		.collect::<HashSet<String>>()
 }
 
 /// Filters a `Vec<Post>` by the given `HashSet` of filters (each filter being
@@ -1094,8 +1104,7 @@ pub fn setting(req: &Request<Body>, name: &str) -> String {
 	}
 	// The above two still come to this if there was no existing value
 	else {
-		req
-			.cookie(name)
+		req.cookie(name)
 			.unwrap_or_else(|| {
 				// If there is no cookie for this setting, try receiving a default from the config
 				if let Some(default) = get_setting(&format!("REDLIB_DEFAULT_{}", name.to_uppercase())) {
@@ -1137,7 +1146,8 @@ static REGEX_URL_WWW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://w
 static REGEX_URL_OLD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://old\.reddit\.com/(.*)").unwrap());
 static REGEX_URL_NP: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://np\.reddit\.com/(.*)").unwrap());
 static REGEX_URL_PLAIN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://reddit\.com/(.*)").unwrap());
-static REGEX_URL_VIDEOS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://v\.redd\.it/(.*)/(DASH|CMAF)_([0-9]{2,4}(\.mp4|$|\?source=fallback))").unwrap());
+static REGEX_URL_VIDEOS: LazyLock<Regex> =
+	LazyLock::new(|| Regex::new(r"https?://v\.redd\.it/(.*)/(DASH|CMAF)_([0-9]{2,4}(\.mp4|$|\?source=fallback))").unwrap());
 static REGEX_URL_VIDEOS_HLS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://v\.redd\.it/(.+)/(HLSPlaylist\.m3u8.*)$").unwrap());
 static REGEX_URL_PACKAGED_MEDIA: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://packaged-media\.redd\.it/(.*)").unwrap());
 static REGEX_URL_EXTERNAL_PACKAGED_MEDIA: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://external-packaged-media\.redd\.it/(.*)").unwrap());
@@ -1386,7 +1396,8 @@ pub fn rewrite_urls(input_text: &str) -> String {
 // Match Giphy URLs in comment anchor tags, capturing the GIF ID
 // Handles: giphy.com/gifs/ID, media.giphy.com/media/ID, i.giphy.com/ID
 static GIPHY_EMBED_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-	Regex::new(r#"(?i)<a\s+href="https?://(?:www\.)?(?:giphy\.com/(?:gifs|clips)|media\.giphy\.com/media|i\.giphy\.com)/([a-z0-9]+)[^"]*"[^>]*>[^<]*</a>"#).unwrap()
+	Regex::new(r#"(?i)<a\s+href="https?://(?:www\.)?(?:giphy\.com/(?:gifs|clips)|media\.giphy\.com/media|i\.giphy\.com)/([a-z0-9]+)[^"]*"[^>]*>[^<]*</a>"#)
+		.unwrap()
 });
 
 /// Rewrite Giphy URLs in comment body to embedded video elements
@@ -1402,7 +1413,8 @@ fn rewrite_giphy_links(comment: &str) -> String {
 }
 
 // These links all follow a pattern of "https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/SUBREDDIT_ID/RANDOM_FILENAME.png"
-static REDDIT_EMOTE_LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/(.*)"#).unwrap());
+static REDDIT_EMOTE_LINK_REGEX: LazyLock<Regex> =
+	LazyLock::new(|| Regex::new(r#"https://reddit-econ-prod-assets-permanent.s3.amazonaws.com/asset-manager/(.*)"#).unwrap());
 
 // These all follow a pattern of '"emote|SUBREDDIT_IT|NUMBER"', we want the number
 static REDDIT_EMOTE_ID_NUMBER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#""emote\|.*\|(.*)""#).unwrap());
@@ -1517,7 +1529,8 @@ pub fn time(created: f64) -> (String, String) {
 
 	// If the time difference is more than a month, show full date
 	let mut rel_time = if time_delta > Duration::days(30) {
-		time.format(format_description!("[month repr:short] [day] '[year repr:last_two]")).unwrap_or_default()
+		time.format(format_description!("[month repr:short] [day] '[year repr:last_two]"))
+			.unwrap_or_default()
 	// Otherwise, show relative date/time
 	} else if time_delta.whole_days() > 0 {
 		format!("{}d", time_delta.whole_days())
@@ -1537,8 +1550,7 @@ pub fn time(created: f64) -> (String, String) {
 
 	(
 		rel_time,
-		time
-			.format(format_description!("[month repr:short] [day] [year], [hour]:[minute]:[second] UTC"))
+		time.format(format_description!("[month repr:short] [day] [year], [hour]:[minute]:[second] UTC"))
 			.unwrap_or_default(),
 	)
 }
@@ -1591,7 +1603,11 @@ pub async fn error(req: Request<Body>, msg: &str) -> Result<Response<Body>, Stri
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(404).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	Ok(Response::builder()
+		.status(404)
+		.header("content-type", "text/html")
+		.body(body.into())
+		.unwrap_or_default())
 }
 
 /// Renders a generic info landing page.
@@ -1605,7 +1621,11 @@ pub async fn info(req: Request<Body>, msg: &str) -> Result<Response<Body>, Strin
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(200).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	Ok(Response::builder()
+		.status(200)
+		.header("content-type", "text/html")
+		.body(body.into())
+		.unwrap_or_default())
 }
 
 /// Returns true if the config/env variable `REDLIB_SFW_ONLY` carries the
@@ -1655,7 +1675,10 @@ pub fn scrape_comment_prefetch() -> usize {
 
 /// Feed requests the gql backend makes to fill one r/all page, at least 1.
 pub fn gql_feed_requests() -> usize {
-	get_setting("REDLIB_GQL_FEED_REQUESTS").and_then(|val| val.parse().ok()).filter(|&n| n > 0).unwrap_or(2)
+	get_setting("REDLIB_GQL_FEED_REQUESTS")
+		.and_then(|val| val.parse().ok())
+		.filter(|&n| n > 0)
+		.unwrap_or(2)
 }
 
 /// Returns true if the config/env variable `REDLIB_ROBOTS_DISABLE_INDEXING` carries the
@@ -1713,7 +1736,11 @@ pub async fn nsfw_landing(req: Request<Body>, req_url: String) -> Result<Respons
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(403).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	Ok(Response::builder()
+		.status(403)
+		.header("content-type", "text/html")
+		.body(body.into())
+		.unwrap_or_default())
 }
 
 /// Returns the last (non-empty) segment of a path string
@@ -1738,7 +1765,11 @@ pub fn get_post_url(post: &Post) -> String {
 	}
 
 	if let Some(out_url) = &post.out_url {
-		return if out_url.starts_with("/r/") { to_absolute_url(out_url) } else { out_url.clone() };
+		return if out_url.starts_with("/r/") {
+			to_absolute_url(out_url)
+		} else {
+			out_url.clone()
+		};
 	}
 
 	to_absolute_url(&post.permalink)
@@ -1858,8 +1889,7 @@ pub fn build_rss_items(posts: &[Post]) -> Vec<Item> {
 /// Serializes a feed into an HTTP response.
 pub fn rss_response(channel: &Channel) -> Response<Body> {
 	let mut res = Response::new(Body::from(channel.to_string().into_bytes()));
-	res
-		.headers_mut()
+	res.headers_mut()
 		.insert(hyper::header::CONTENT_TYPE, hyper::header::HeaderValue::from_static("application/rss+xml"));
 	res
 }
@@ -1945,14 +1975,14 @@ fn build_media_html(post: &Post) -> String {
 	match post.post_type.as_str() {
 		"image" => {
 			let url = to_absolute_url(&post.media.url);
-			format!("<a href=\"{}\"><img src=\"{}\" width=\"100%\" /></a><br/>", url, url)
+			format!("<a href=\"{}\"><img src=\"{}\" width=\"100%\" /></a><br>", url, url)
 		}
 		"gallery" => post
 			.gallery
 			.iter()
 			.map(|media| {
 				let url = to_absolute_url(&media.url);
-				format!("<a href=\"{}\"><img src=\"{}\" width=\"100%\" /></a><br/>", url, url)
+				format!("<a href=\"{}\"><img src=\"{}\" width=\"100%\" /></a><br>", url, url)
 			})
 			.collect::<Vec<_>>()
 			.join("\n"),
@@ -1960,7 +1990,7 @@ fn build_media_html(post: &Post) -> String {
 			let poster = to_absolute_url(&post.media.poster);
 			let video_url = to_absolute_url(&post.media.url);
 			format!(
-				"<video controls preload=\"metadata\" poster=\"{}\" width=\"100%\"><source src=\"{}\" type=\"video/mp4\" /></video><br/>",
+				"<video controls preload=\"metadata\" poster=\"{}\" width=\"100%\"><source src=\"{}\" type=\"video/mp4\" /></video><br>",
 				poster, video_url
 			)
 		}
@@ -2003,7 +2033,9 @@ fn get_mime_type(url: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-	use super::{deflate_compress, deflate_decompress, format_num, format_url, render_bullet_lists, rewrite_emotes, rewrite_urls, url_path_basename, Post, Preferences};
+	use super::{
+		deflate_compress, deflate_decompress, format_num, format_url, render_bullet_lists, rewrite_emotes, rewrite_urls, url_path_basename, Post, Preferences,
+	};
 	use super::{page_feed_url, prefix_relative_urls, Media};
 	use serde_json::{json, Value};
 
@@ -2030,7 +2062,10 @@ mod tests {
 			"<div class=\"md\"><pre><code>x\n</code></pre></div>"
 		);
 		let post = serde_json::json!({ "data": { "selftext": "plain", "selftext_html": "<div class=\"md\"><p>plain</p></div>" } });
-		assert_eq!(crate::utils::body_html(&post, "selftext", "selftext_html"), "<div class=\"md\"><p>plain</p></div>");
+		assert_eq!(
+			crate::utils::body_html(&post, "selftext", "selftext_html"),
+			"<div class=\"md\"><p>plain</p></div>"
+		);
 	}
 
 	#[test]
@@ -2082,7 +2117,10 @@ mod tests {
 			"/preview/pre/qwerty.jpg?auto=webp&s=asdf"
 		);
 		assert_eq!(format_url("https://v.redd.it/foo/DASH_360.mp4?source=fallback"), "/vid/foo/DASH/360.mp4");
-		assert_eq!(format_url("https://packaged-media.redd.it/foo/muxed.mp4?e=1&s=2"), "/packaged/foo/muxed.mp4?e=1&s=2");
+		assert_eq!(
+			format_url("https://packaged-media.redd.it/foo/muxed.mp4?e=1&s=2"),
+			"/packaged/foo/muxed.mp4?e=1&s=2"
+		);
 		assert_eq!(
 			format_url("https://external-packaged-media.redd.it/t3_x/3p/streamable/y/video.mp4?v=1"),
 			"/packaged-external/t3_x/3p/streamable/y/video.mp4?v=1"
@@ -2091,7 +2129,10 @@ mod tests {
 			format_url("https://v.redd.it/foo/HLSPlaylist.m3u8?a=bar&v=1&f=sd"),
 			"/hls/foo/HLSPlaylist.m3u8?a=bar&v=1&f=sd"
 		);
-		assert_eq!(format_url("https://www.redditstatic.com/gold/awards/icon/icon.png"), "/static/gold/awards/icon/icon.png");
+		assert_eq!(
+			format_url("https://www.redditstatic.com/gold/awards/icon/icon.png"),
+			"/static/gold/awards/icon/icon.png"
+		);
 		assert_eq!(
 			format_url("https://www.redditstatic.com/marketplace-assets/v1/core/emotes/snoomoji_emotes/free_emotes_pack/shrug.gif"),
 			"/static/marketplace-assets/v1/core/emotes/snoomoji_emotes/free_emotes_pack/shrug.gif"
@@ -2187,8 +2228,7 @@ mod tests {
 
 	#[test]
 	fn test_rewriting_image_links() {
-		let input =
-			r#"<p><a href="https://preview.redd.it/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc">caption 1</a></p>"#;
+		let input = r#"<p><a href="https://preview.redd.it/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc">caption 1</a></p>"#;
 		let output = r#"<figure><a href="/preview/pre/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc"><img loading="lazy" src="/preview/pre/6awags382xo31.png?width=2560&amp;format=png&amp;auto=webp&amp;s=9c563aed4f07a91bdd249b5a3cea43a79710dcfc"></a><figcaption>caption 1</figcaption></figure>"#;
 		assert_eq!(rewrite_urls(input), output);
 	}
@@ -2385,10 +2425,19 @@ How`s your monitor by the way? Any IPS bleed whatsoever? I either got lucky or t
 		);
 		assert_eq!(feed("/comments/abc123"), Some("/comments/abc123.rss".to_string()));
 		assert_eq!(feed("/u/spez"), Some("/user/spez.rss".to_string()));
-		assert_eq!(feed("/user/spez/comments?sort=top&t=all"), Some("/user/spez/comments.rss?sort=top&t=all".to_string()));
+		assert_eq!(
+			feed("/user/spez/comments?sort=top&t=all"),
+			Some("/user/spez/comments.rss?sort=top&t=all".to_string())
+		);
 		assert_eq!(feed("/user/spez/saved"), None);
-		assert_eq!(feed("/search?q=rust+lang&sort=new&after=t3_x"), Some("/search.rss?q=rust+lang&sort=new".to_string()));
-		assert_eq!(feed("/r/rust/search?q=async&restrict_sr=on"), Some("/r/rust/search.rss?q=async&restrict_sr=on".to_string()));
+		assert_eq!(
+			feed("/search?q=rust+lang&sort=new&after=t3_x"),
+			Some("/search.rss?q=rust+lang&sort=new".to_string())
+		);
+		assert_eq!(
+			feed("/r/rust/search?q=async&restrict_sr=on"),
+			Some("/r/rust/search.rss?q=async&restrict_sr=on".to_string())
+		);
 		assert_eq!(feed("/search?q=rust&type=sr_user"), None);
 		assert_eq!(feed("/settings"), None);
 	}
@@ -2397,7 +2446,10 @@ How`s your monitor by the way? Any IPS bleed whatsoever? I either got lucky or t
 	fn page_feed_url_front_page_uses_preferences() {
 		let subs = vec!["rust".to_string(), "linux".to_string()];
 		assert_eq!(page_feed_url("/", "", &subs, ""), Some("/r/rust+linux.rss".to_string()));
-		assert_eq!(page_feed_url("/top?t=day", "default", &subs, ""), Some("/r/rust+linux/top.rss?t=day".to_string()));
+		assert_eq!(
+			page_feed_url("/top?t=day", "default", &subs, ""),
+			Some("/r/rust+linux/top.rss?t=day".to_string())
+		);
 		assert_eq!(page_feed_url("/new", "all", &subs, ""), Some("/r/all/new.rss".to_string()));
 	}
 

@@ -89,5 +89,11 @@ async fn web_session_get(path: &str, sessions: &[(String, String)]) -> Option<Wr
 async fn reddit_web_get(path: &str, cookie: &str) -> Result<WreqResponse, String> {
 	let url = format!("{ALTERNATIVE_REDDIT_URL_BASE}{path}");
 
-	CLIENT.load_full().get(&url).header(wreq_header::COOKIE, cookie).send().await.map_err(|e| e.to_string())
+	CLIENT
+		.load_full()
+		.get(&url)
+		.header(wreq_header::COOKIE, cookie)
+		.send()
+		.await
+		.map_err(|e| e.to_string())
 }

@@ -1,8 +1,8 @@
 #![allow(clippy::cmp_owned)]
 use crate::body::Body;
 use crate::utils::{
-	build_rss_items, enable_rss, error, filter_posts, format_url, get_filters, nsfw_landing, param, rss_page_link, rss_response, setting, should_be_nsfw_gated, template, Post,
-	Preferences, User, RSS_USER_LISTINGS,
+	build_rss_items, enable_rss, error, filter_posts, format_url, get_filters, nsfw_landing, param, rss_page_link, rss_response, setting, should_be_nsfw_gated,
+	template, Post, Preferences, User, RSS_USER_LISTINGS,
 };
 use crate::{backends::json, server::RequestExt};
 use askama::Template;
@@ -125,7 +125,9 @@ async fn user(name: &str) -> Result<User, String> {
 			title: about("title"),
 			icon: format_url(&about("icon_img")),
 			karma: res["data"]["total_karma"].as_i64().unwrap_or(0),
-			created: created.format(format_description!("[month repr:short] [day] '[year repr:last_two]")).unwrap_or_default(),
+			created: created
+				.format(format_description!("[month repr:short] [day] '[year repr:last_two]"))
+				.unwrap_or_default(),
 			banner: about("banner_img"),
 			description: about("public_description"),
 			nsfw: res["data"]["subreddit"]["over_18"].as_bool().unwrap_or_default(),

@@ -1,6 +1,8 @@
 #![allow(clippy::cmp_owned)]
 use crate::body::Body;
-use crate::utils::{self, catch_random, clean_url, error, filter_posts, format_num, format_url, get_filters, param, redirect, setting, template, val, Post, Preferences};
+use crate::utils::{
+	self, catch_random, clean_url, error, filter_posts, format_num, format_url, get_filters, param, redirect, setting, template, val, Post, Preferences,
+};
 use crate::{
 	backends::json,
 	server::RequestExt,
@@ -164,7 +166,9 @@ pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
 	let sort = param(&path, "sort")
 		.filter(|sort| tab.sorts.contains(&sort.as_str()))
 		.unwrap_or_else(|| "relevance".to_string());
-	let post_types = param(&path, "post_types").filter(|types| tab.post_types.contains(&types.as_str())).unwrap_or_default();
+	let post_types = param(&path, "post_types")
+		.filter(|types| tab.post_types.contains(&types.as_str()))
+		.unwrap_or_default();
 	let t = param(&path, "t").filter(|_| !tab.sorts.is_empty()).unwrap_or_default();
 	let restrict_sr = param(&path, "restrict_sr").unwrap_or_default();
 	let after = param(&path, "after").unwrap_or_default();
@@ -197,7 +201,12 @@ pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	if tab.name == "communities" || tab.name == "people" {
 		let kind = if tab.name == "communities" { "subreddits" } else { "users" };
-		let response = match json(format!("/{kind}/search.json?q={}&after={}{nsfw_results}", encode(&query), encode(&after)), false).await {
+		let response = match json(
+			format!("/{kind}/search.json?q={}&after={}{nsfw_results}", encode(&query), encode(&after)),
+			false,
+		)
+		.await
+		{
 			Ok(response) => response,
 			Err(msg) => return error(req, &msg).await,
 		};
@@ -324,7 +333,9 @@ async fn search_subreddits(q: &str) -> Vec<Subreddit> {
 
 fn subreddit(subreddit: &Value) -> Subreddit {
 	// Fetch subreddit icon either from the community_icon or icon_img value
-	let icon = subreddit["data"]["community_icon"].as_str().map_or_else(|| val(subreddit, "icon_img"), ToString::to_string);
+	let icon = subreddit["data"]["community_icon"]
+		.as_str()
+		.map_or_else(|| val(subreddit, "icon_img"), ToString::to_string);
 
 	Subreddit {
 		name: val(subreddit, "display_name"),
@@ -337,7 +348,10 @@ fn subreddit(subreddit: &Value) -> Subreddit {
 
 fn user(user: &Value) -> User {
 	let created = user["data"]["created_utc"].as_f64().unwrap_or_default();
-	let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64();
+	let now = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap_or_default()
+		.as_secs_f64();
 	let days = ((now - created) / 86400.0) as i64;
 	User {
 		name: val(user, "name"),
@@ -407,21 +421,29 @@ mod tests {
 	#[test]
 	fn test_tabs_are_links_with_their_own_filters() {
 		let html = render("media", "top", "");
-		assert!(html.contains(r#"<a href="?q=aurora%20borealis&type=media" class="selected">Media</a>"#), "{html}");
+		assert!(
+			html.contains(r#"<a href="?q=aurora%20borealis&type=media" class="selected">Media</a>"#),
+			"{html}"
+		);
 		assert!(html.contains(r#"<a href="?q=aurora%20borealis&type=people" >People</a>"#), "{html}");
 		assert!(html.contains(r#"<input type="hidden" name="type" value="media">"#));
 		assert!(html.contains(r#"name="post_types""#) && html.contains("GIF") && !html.contains(r#"value="poll""#));
 		assert!(html.contains(r#"name="t""#) && !html.contains(r#"value="comments""#));
 		assert!(html.contains(r#"<div class="media_grid search_results">"#), "{html}");
 		assert!(
-			html.contains(r#"<a id="show_more" href="?q=aurora%20borealis&type=media&restrict_sr=&sort=top&t=&post_types=&after=abc%3D" accesskey="N">Show more</a>"#),
+			html.contains(
+				r#"<a id="show_more" href="?q=aurora%20borealis&type=media&restrict_sr=&sort=top&t=&post_types=&after=abc%3D" accesskey="N">Show more</a>"#
+			),
 			"{html}"
 		);
 
 		let html = render("comments", "new", "on");
 		assert!(html.contains(r#"<div class="search_results search_results_comments">"#), "{html}");
 		assert!(html.contains(r#"id="show_more""#) && !html.contains("NEXT"));
-		assert!(html.contains(r#"<a href="?q=aurora%20borealis&type=posts&restrict_sr=on" >Posts</a>"#), "{html}");
+		assert!(
+			html.contains(r#"<a href="?q=aurora%20borealis&type=posts&restrict_sr=on" >Posts</a>"#),
+			"{html}"
+		);
 		assert!(!html.contains(r#"name="post_types""#) && !html.contains(r#"name="t""#));
 
 		let html = render("sr_user", "", "");

@@ -538,7 +538,11 @@ pub async fn update(req: Request<Body>) -> Result<Response<Body>, String> {
 }
 
 pub async fn encoded_restore(req: Request<Body>) -> Result<Response<Body>, String> {
-	let body = req.into_body().collect_bytes().await.map_err(|e| format!("Failed to get bytes from request body: {e}"))?;
+	let body = req
+		.into_body()
+		.collect_bytes()
+		.await
+		.map_err(|e| format!("Failed to get bytes from request body: {e}"))?;
 
 	if body.len() > 1024 * 1024 {
 		return Err("Request body too large".to_string());

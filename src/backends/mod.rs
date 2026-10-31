@@ -432,7 +432,11 @@ mod tests {
 
 	/// `expected` without the backends this build doesn't have.
 	fn in_build<'a>(expected: &[&'a str]) -> Vec<&'a str> {
-		expected.iter().copied().filter(|name| BACKENDS.iter().any(|backend| backend.name() == *name)).collect()
+		expected
+			.iter()
+			.copied()
+			.filter(|name| BACKENDS.iter().any(|backend| backend.name() == *name))
+			.collect()
 	}
 
 	#[test]
@@ -448,7 +452,10 @@ mod tests {
 	fn test_cursor_owner() {
 		assert_eq!(cursor_owner("/r/rust/comments/abc.json?sort=top&raw_json=1"), None);
 		assert_eq!(cursor_owner("/r/rust/comments/abc.json?more_cursor=xyz&more_query=gql&raw_json=1"), Some("gql"));
-		assert_eq!(cursor_owner("/r/rust/comments/abc.json?more_cursor=xyz&more_query=top&raw_json=1"), Some("scraped"));
+		assert_eq!(
+			cursor_owner("/r/rust/comments/abc.json?more_cursor=xyz&more_query=top&raw_json=1"),
+			Some("scraped")
+		);
 		assert_eq!(cursor_owner("/r/rust/comments/abc.json?more_cursor=xyz"), Some("scraped"));
 	}
 
@@ -470,7 +477,10 @@ mod tests {
 	#[test]
 	#[sealed_test]
 	fn test_default_order() {
-		assert_eq!(names(&order(Kind::Comments)), in_build(&["gql", "cookied-json", "obscura-cookied-json", "scraped", "json"]));
+		assert_eq!(
+			names(&order(Kind::Comments)),
+			in_build(&["gql", "cookied-json", "obscura-cookied-json", "scraped", "json"])
+		);
 		assert_eq!(names(&order(Kind::Listing)), in_build(&["json", "gql", "cookied-json", "obscura-cookied-json"]));
 		assert_eq!(names(&order(Kind::Wiki)), in_build(&["json", "cookied-json", "obscura-cookied-json"]));
 		assert_eq!(names(&order(Kind::All)), in_build(&["json", "gql", "cookied-json", "obscura-cookied-json"]));
@@ -543,7 +553,11 @@ mod tests {
 	fn test_blocked_response_reports_the_block_not_a_json_error() {
 		// Reddit's block page is HTML, so serde fails on it. The message the
 		// user sees must not blame JSON parsing.
-		let msg = non_json_response_error(403, "expected value at line 1 column 1", "/r/politics/comments/1x9xx9e/.json?&sort=confidence&raw_json=1");
+		let msg = non_json_response_error(
+			403,
+			"expected value at line 1 column 1",
+			"/r/politics/comments/1x9xx9e/.json?&sort=confidence&raw_json=1",
+		);
 		assert!(msg.contains("403"), "{msg}");
 		assert!(!msg.contains("Failed to parse page JSON data"), "{msg}");
 

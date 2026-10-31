@@ -30,9 +30,9 @@ num=0
 
 # Append the version list to the source file
 echo "$ios_version_list" | while IFS= read -r line; do
-  num=$((num+1))
-  echo "	\"$line\"," >> "$filename"
-  echo -e "[$num/$ios_app_count] Fetched \e[34m$line\e[0m."
+	num=$((num+1))
+	echo "	\"$line\"," >> "$filename"
+	echo -e "[$num/$ios_app_count] Fetched \e[34m$line\e[0m."
 done
 
 # Close the array in the source file
@@ -45,31 +45,31 @@ ua="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrom
 apkmirror="https://www.apkmirror.com"
 releases=""
 for page in "" "page/2/" "page/3/"; do
-  releases+=$(curl -s -A "$ua" "$apkmirror/apk/redditinc/reddit/$page" | rg -o '/apk/redditinc/reddit/reddit-20\d{2}-\d+-\d+-release/' | uniq)
-  releases+=$'\n'
-  sleep 1
+	releases+=$(curl -s -A "$ua" "$apkmirror/apk/redditinc/reddit/$page" | rg -o '/apk/redditinc/reddit/reddit-20\d{2}-\d+-\d+-release/' | uniq)
+	releases+=$'\n'
+	sleep 1
 done
 
 versions=""
 while IFS= read -r release; do
-  [ -z "$release" ] && continue
-  # reddit-2026-42-0-release -> 2026.42.0
-  version=$(echo "$release" | rg -o 'reddit-(20\d{2})-(\d+)-(\d+)-release' -r '$1.$2.$3')
-  echo "$versions" | rg -qF "Version $version/" && continue
+	[ -z "$release" ] && continue
+	# reddit-2026-42-0-release -> 2026.42.0
+	version=$(echo "$release" | rg -o 'reddit-(20\d{2})-(\d+)-(\d+)-release' -r '$1.$2.$3')
+	echo "$versions" | rg -qF "Version $version/" && continue
 
-  download=$(curl -s -A "$ua" "$apkmirror$release" | rg -o "$release[^\"]*-android-apk-download/" | head -n1)
-  sleep 1
-  [ -z "$download" ] && continue
-  found=$(curl -s -A "$ua" "$apkmirror$download" | sed 's/<[^>]*>/ /g' | rg -o 'Version: *(20\d{2}\.\d+\.\d+) *\((\d+)\)' -r 'Version $1/Build $2')
-  sleep 1
-  versions+="$found"$'\n'
-  echo -e "Fetched \e[32m$(echo "$found" | wc -l) versions\e[0m around $version."
+	download=$(curl -s -A "$ua" "$apkmirror$release" | rg -o "$release[^\"]*-android-apk-download/" | head -n1)
+	sleep 1
+	[ -z "$download" ] && continue
+	found=$(curl -s -A "$ua" "$apkmirror$download" | sed 's/<[^>]*>/ /g' | rg -o 'Version: *(20\d{2}\.\d+\.\d+) *\((\d+)\)' -r 'Version $1/Build $2')
+	sleep 1
+	versions+="$found"$'\n'
+	echo -e "Fetched \e[32m$(echo "$found" | wc -l) versions\e[0m around $version."
 done <<< "$releases"
 
 versions=$(echo "$versions" | rg . | sort -u -V -r)
 if [ -z "$versions" ]; then
-  echo "Failed to fetch Android app versions, restore $filename with git" >&2
-  exit 1
+	echo "Failed to fetch Android app versions, restore $filename with git" >&2
+	exit 1
 fi
 
 # Count the number of lines in the version list
@@ -81,7 +81,7 @@ echo -e "Fetched \e[32m$android_count Android app versions.\e[0m"
 echo "pub const ANDROID_APP_VERSION_LIST: &[&str; $android_count] = &[" >> "$filename"
 
 echo "$versions" | while IFS= read -r line; do
-  echo "	\"$line\"," >> "$filename"
+	echo "	\"$line\"," >> "$filename"
 done
 
 # Close the array in the source file
@@ -102,9 +102,9 @@ num=0
 
 # For each in versions, curl the page and extract the build number
 echo "$table" | while IFS= read -r line; do
-  num=$((num+1))
-  echo "	\"$line\"," >> "$filename"
-  echo -e "\e[34m[$num/$ios_count] Fetched $line\e[0m."
+	num=$((num+1))
+	echo "	\"$line\"," >> "$filename"
+	echo -e "\e[34m[$num/$ios_count] Fetched $line\e[0m."
 done
 
 # Close the array in the source file

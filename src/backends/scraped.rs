@@ -125,7 +125,14 @@ async fn thread(path: &str, quarantine: bool) -> Result<Value, String> {
 /// comment's thread is returned, preceded by up to `context` ancestors,
 /// mirroring the API's comment permalinks.
 #[cached(max_size = 100, ttl_secs = 30)]
-pub async fn comments(subreddit: String, post_id: String, comment_id: Option<String>, sort: String, context: Option<String>, more: Option<More>) -> Result<Value, String> {
+pub async fn comments(
+	subreddit: String,
+	post_id: String,
+	comment_id: Option<String>,
+	sort: String,
+	context: Option<String>,
+	more: Option<More>,
+) -> Result<Value, String> {
 	let html = match &more {
 		Some(more) => shreddit_fragment(more_path(&subreddit, &post_id, &more.query), Some(more.cursor.clone())).await?,
 		None => shreddit_fragment(comments_path(&subreddit, &post_id, comment_id.as_deref(), &sort), None).await?,
@@ -160,7 +167,9 @@ fn comments_path(subreddit: &str, post_id: &str, comment_id: Option<&str>, sort:
 	if !sort.is_empty() {
 		path.push_str(&format!(
 			"?{}",
-			url::form_urlencoded::Serializer::new(String::new()).append_pair("sort", &sort.to_uppercase()).finish()
+			url::form_urlencoded::Serializer::new(String::new())
+				.append_pair("sort", &sort.to_uppercase())
+				.finish()
 		));
 	}
 	path
@@ -379,8 +388,7 @@ impl CommentTree {
 	}
 
 	fn placeholder_parent(&self, more: &MoreComments) -> String {
-		more
-			.parent_positions
+		more.parent_positions
 			.as_ref()
 			.and_then(|positions| self.positions.get(positions))
 			.cloned()
@@ -425,13 +433,21 @@ impl CommentTree {
 			Child::Comment(id) => {
 				let mut data = self.data[id].clone();
 				let has_replies = self.children.get(id).is_some_and(|replies| !replies.is_empty());
-				data["replies"] = if has_replies { self.listing(id, thread) } else { Value::String(String::new()) };
+				data["replies"] = if has_replies {
+					self.listing(id, thread)
+				} else {
+					Value::String(String::new())
+				};
 				json!({ "kind": "t1", "data": data })
 			}
 			Child::More(more) => {
 				// A reply placeholder whose parent isn't loaded (the end of a
 				// loaded batch of replies) is still a reply.
-				let parent = if parent == self.post && more.parent_positions.is_some() { "t1_" } else { parent };
+				let parent = if parent == self.post && more.parent_positions.is_some() {
+					"t1_"
+				} else {
+					parent
+				};
 				json!({
 					"kind": "more",
 					"data": {
@@ -497,10 +513,12 @@ fn parse_comment(element: ElementRef<'_>) -> Option<ParsedComment> {
 fn comment_content<'a>(element: ElementRef<'a>, id: &str) -> Option<ElementRef<'a>> {
 	// A comment without a body would otherwise match the first reply's body.
 	let body_id = format!("{id}-comment-rtjson-content");
-	let body = element.select(&COMMENT_BODY).next().filter(|body| body.value().id() == Some(body_id.as_str()))?;
+	let body = element
+		.select(&COMMENT_BODY)
+		.next()
+		.filter(|body| body.value().id() == Some(body_id.as_str()))?;
 	Some(
-		body
-			.child_elements()
+		body.child_elements()
 			.find(|child| child.value().id().is_some_and(|child_id| child_id.ends_with("-post-rtjson-content")))
 			.unwrap_or(body),
 	)
@@ -713,7 +731,10 @@ mod tests {
 	fn test_comments_path() {
 		assert_eq!(comments_path("rust", "abc", None, ""), "/svc/shreddit/comments/r/rust/t3_abc");
 		assert_eq!(comments_path("rust", "abc", None, "new"), "/svc/shreddit/comments/r/rust/t3_abc?sort=NEW");
-		assert_eq!(comments_path("rust", "abc", Some("def"), "q&a"), "/svc/shreddit/comments/r/rust/t3_abc/t1_def?sort=Q%26A");
+		assert_eq!(
+			comments_path("rust", "abc", Some("def"), "q&a"),
+			"/svc/shreddit/comments/r/rust/t3_abc/t1_def?sort=Q%26A"
+		);
 	}
 
 	#[test]
@@ -877,7 +898,10 @@ mod tests {
 			more_path("rust", "abc", "top-level=1&commentPositionOffset=2"),
 			"/svc/shreddit/more-comments/rust/t3_abc?top-level=1&commentPositionOffset=2"
 		);
-		assert_eq!(more_path("rust", "abc", "a=b c#frag&/x"), "/svc/shreddit/more-comments/rust/t3_abc?a=b+c%23frag&%2Fx=");
+		assert_eq!(
+			more_path("rust", "abc", "a=b c#frag&/x"),
+			"/svc/shreddit/more-comments/rust/t3_abc?a=b+c%23frag&%2Fx="
+		);
 	}
 
 	#[tokio::test]

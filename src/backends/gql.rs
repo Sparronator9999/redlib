@@ -90,7 +90,11 @@ pub async fn json(path: &str, quarantine: bool) -> Option<Result<Value, String>>
 async fn thread(path: &str, quarantine: bool) -> Result<Value, String> {
 	let (id, comment_id) = parse_path(path).ok_or_else(|| format!("Couldn't parse post path | {path}"))?;
 
-	let (post, comments) = futures_lite::future::zip(reddit_json(format!("/by_id/t3_{id}.json?raw_json=1"), quarantine), comments(&id, comment_id, path)).await;
+	let (post, comments) = futures_lite::future::zip(
+		reddit_json(format!("/by_id/t3_{id}.json?raw_json=1"), quarantine),
+		comments(&id, comment_id, path),
+	)
+	.await;
 	Ok(json_value!([post?, listing(comments?)]))
 }
 
@@ -153,7 +157,10 @@ fn items(trees: &[Value], post_id: &str) -> Vec<(u64, Value)> {
 			}
 			// Deleted comments have no ID, but their first reply names them as its parent
 			let mut tree = tree.clone();
-			if let Some(reply) = trees.get(i + 1).filter(|next| next["depth"].as_u64() == tree["depth"].as_u64().map(|depth| depth + 1)) {
+			if let Some(reply) = trees
+				.get(i + 1)
+				.filter(|next| next["depth"].as_u64() == tree["depth"].as_u64().map(|depth| depth + 1))
+			{
 				tree["node"]["id"] = reply["parentId"].clone();
 			}
 			item(&tree, post_id)
@@ -180,7 +187,10 @@ async fn query(operation: &str, hash: &str, variables: &Value) -> Result<Value, 
 			.post(GQL_URL)
 			.header("X-APOLLO-OPERATION-NAME", operation)
 			.header("X-APOLLO-OPERATION-ID", hash)
-			.header("Accept", "multipart/mixed;deferSpec=20220824, application/graphql-response+json, application/json");
+			.header(
+				"Accept",
+				"multipart/mixed;deferSpec=20220824, application/graphql-response+json, application/json",
+			);
 		for (key, value) in &OAUTH_CLIENT.load_full().headers_map {
 			// `json()` sets its own; a duplicate Content-Type fails every query
 			if !key.eq_ignore_ascii_case("content-type") {
@@ -336,7 +346,12 @@ fn feed_variables(path: &str, sort: &str) -> Value {
 
 /// A JSON API listing of the posts in a GraphQL connection (`edges` + `pageInfo`).
 fn post_listing(connection: &Value) -> Value {
-	let children: Vec<Value> = connection["edges"].as_array().into_iter().flatten().filter_map(|edge| post(&edge["node"])).collect();
+	let children: Vec<Value> = connection["edges"]
+		.as_array()
+		.into_iter()
+		.flatten()
+		.filter_map(|edge| post(&edge["node"]))
+		.collect();
 	json_value!({ "kind": "Listing", "data": { "after": after(connection), "children": children } })
 }
 
@@ -426,7 +441,11 @@ fn post(node: &Value) -> Option<Value> {
 	let richtext: Value = content["richtext"].as_str().and_then(|r| serde_json::from_str(r).ok()).unwrap_or_default();
 	let (flair_type, flair_richtext) = flair_parts(&node["flair"]);
 	let (author_flair_type, author_flair_richtext) = flair_parts(&node["authorFlair"]);
-	let thumbnail = if node["isThumbnailEnabled"] == false { &Value::Null } else { &node["thumbnail"] };
+	let thumbnail = if node["isThumbnailEnabled"] == false {
+		&Value::Null
+	} else {
+		&node["thumbnail"]
+	};
 	// PostsByIds calls it `postTitle`, the feeds `title`.
 	let title = if node["title"].is_string() { &node["title"] } else { &node["postTitle"] };
 
@@ -480,7 +499,8 @@ fn post(node: &Value) -> Option<Value> {
 
 	let still = &node["media"]["still"]["source"];
 	if still.is_object() {
-		data["preview"] = json_value!({ "images": [{ "source": { "url": still["url"], "width": still["dimensions"]["width"], "height": still["dimensions"]["height"] } }] });
+		data["preview"] =
+			json_value!({ "images": [{ "source": { "url": still["url"], "width": still["dimensions"]["width"], "height": still["dimensions"]["height"] } }] });
 	}
 
 	let streaming = &node["media"]["streaming"];
@@ -488,7 +508,8 @@ fn post(node: &Value) -> Option<Value> {
 		// Reddit's copies of external videos (Streamable, ...) give an MP4 as
 		// `hlsUrl` too, which must not be played as HLS.
 		let hls_url = streaming["hlsUrl"].as_str().filter(|url| url.contains(".m3u8"));
-		data["secure_media"] = json_value!({ "reddit_video": { "fallback_url": video_fallback_url(node, streaming), "hls_url": hls_url, "is_gif": streaming["isGif"] == true } });
+		data["secure_media"] =
+			json_value!({ "reddit_video": { "fallback_url": video_fallback_url(node, streaming), "hls_url": hls_url, "is_gif": streaming["isGif"] == true } });
 	}
 
 	if let Some(items) = node["gallery"]["items"].as_array() {
@@ -651,7 +672,11 @@ fn search_listing(response: &Value) -> Option<Value> {
 		.filter_map(search_result)
 		.collect();
 	let page = &main["pageInfo"];
-	let after = if page["hasNextPage"] == true { page["endCursor"].clone() } else { Value::Null };
+	let after = if page["hasNextPage"] == true {
+		page["endCursor"].clone()
+	} else {
+		Value::Null
+	};
 	Some(json_value!({ "kind": "Listing", "data": { "after": after, "children": children } }))
 }
 
@@ -839,17 +864,28 @@ fn merge_overview(posts: &Value, comments: &Value, post_after: &str, comment_aft
 /// Without them, v.redd.it's video-only rendition that fits the video is used.
 fn video_fallback_url(node: &Value, streaming: &Value) -> String {
 	let media = &node["media"];
-	if let Some(url) = media["packagedMedia"]["muxedMp4s"]["recommended"]["url"].as_str().or(media["download"]["url"].as_str()) {
+	if let Some(url) = media["packagedMedia"]["muxedMp4s"]["recommended"]["url"]
+		.as_str()
+		.or(media["download"]["url"].as_str())
+	{
 		return url.to_string();
 	}
 	let dimensions = &streaming["dimensions"];
-	let size = dimensions["width"].as_u64().unwrap_or_default().min(dimensions["height"].as_u64().unwrap_or_default());
+	let size = dimensions["width"]
+		.as_u64()
+		.unwrap_or_default()
+		.min(dimensions["height"].as_u64().unwrap_or_default());
 	let rendition = [1080, 720, 480, 360, 240].into_iter().find(|r| *r <= size).unwrap_or(240);
-	format!("{}/CMAF_{rendition}.mp4?source=fallback", node["url"].as_str().unwrap_or_default().trim_end_matches('/'))
+	format!(
+		"{}/CMAF_{rendition}.mp4?source=fallback",
+		node["url"].as_str().unwrap_or_default().trim_end_matches('/')
+	)
 }
 
 fn timestamp(value: &Value) -> Option<f64> {
-	DateTime::parse_from_str(value.as_str()?, "%Y-%m-%dT%H:%M:%S%.f%z").ok().map(|t| t.timestamp() as f64)
+	DateTime::parse_from_str(value.as_str()?, "%Y-%m-%dT%H:%M:%S%.f%z")
+		.ok()
+		.map(|t| t.timestamp() as f64)
 }
 
 /// Builds the reply tree from items in depth-first order. Goes by depth rather
@@ -894,7 +930,13 @@ fn element(node: &Value, media: &Value) -> String {
 	let children = || render(&node["c"], media);
 	match node["e"].as_str().unwrap_or_default() {
 		// A paragraph of only images is a figure, like the JSON API's
-		"par" if node["c"].as_array().is_some_and(|c| c.iter().all(|c| matches!(c["e"].as_str(), Some("img" | "gif")))) => children(),
+		"par"
+			if node["c"]
+				.as_array()
+				.is_some_and(|c| c.iter().all(|c| matches!(c["e"].as_str(), Some("img" | "gif")))) =>
+		{
+			children()
+		}
 		"par" => format!("<p>{}</p>", children()),
 		"text" => formatted(node),
 		"br" => "<br>".to_string(),
@@ -910,12 +952,20 @@ fn element(node: &Value, media: &Value) -> String {
 		}
 		"li" => format!("<li>{}</li>", children()),
 		"code" => {
-			let lines: Vec<&str> = node["c"].as_array().into_iter().flatten().map(|line| line["t"].as_str().unwrap_or_default()).collect();
+			let lines: Vec<&str> = node["c"]
+				.as_array()
+				.into_iter()
+				.flatten()
+				.map(|line| line["t"].as_str().unwrap_or_default())
+				.collect();
 			format!("<pre><code>{}</code></pre>", htmlescape::encode_minimal(&lines.join("\n")))
 		}
 		"spoilertext" => format!("<span class=\"md-spoiler-text\">{}</span>", children()),
 		"link" => {
-			let title = node["a"].as_str().map(|a| format!(" title=\"{}\"", htmlescape::encode_minimal(a))).unwrap_or_default();
+			let title = node["a"]
+				.as_str()
+				.map(|a| format!(" title=\"{}\"", htmlescape::encode_minimal(a)))
+				.unwrap_or_default();
 			format!("<a href=\"{}\"{title}>{}</a>", url_attr(node["u"].as_str()), formatted(node))
 		}
 		kind @ ("r/" | "u/") => {
@@ -1097,7 +1147,12 @@ mod tests {
 		assert_eq!(page["data"]["after"], "t3_b,t1_z");
 
 		let last_comments = json_value!({ "data": { "after": null, "children": [item("t1_w", 5)] } });
-		let page = merge_overview(&json_value!({ "data": { "after": null, "children": [item("t3_c", 10)] } }), &last_comments, "t3_b", "t1_z");
+		let page = merge_overview(
+			&json_value!({ "data": { "after": null, "children": [item("t3_c", 10)] } }),
+			&last_comments,
+			"t3_b",
+			"t1_z",
+		);
 		assert_eq!(page["data"]["children"].as_array().unwrap().len(), 2);
 		assert_eq!(page["data"]["after"], Value::Null);
 
@@ -1265,8 +1320,7 @@ mod tests {
 	#[test]
 	fn test_search_variables() {
 		let entries = |list: &Value| {
-			list
-				.as_array()
+			list.as_array()
 				.unwrap()
 				.iter()
 				.map(|e| format!("{}={}", e["key"].as_str().unwrap(), e["value"].as_str().unwrap()))
@@ -1274,7 +1328,10 @@ mod tests {
 		};
 		let path = "/search.json?q=rust&sort=top&t=week&post_types=image&after=abc&include_over_18=on";
 		let variables = search_variables(path, "rust".into(), "posts");
-		assert_eq!(entries(&variables["filters"]), ["safe_search=off", "sort=TOP", "time_range=week", "post_types=image"]);
+		assert_eq!(
+			entries(&variables["filters"]),
+			["safe_search=off", "sort=TOP", "time_range=week", "post_types=image"]
+		);
 		assert_eq!(
 			entries(&variables["options"]),
 			[
@@ -1306,7 +1363,10 @@ mod tests {
 			"profile": { "name": "u_spez", "redditorInfo": { "prefixedName": "u/spez" } },
 		});
 		let post = post(&node).unwrap();
-		assert_eq!((&post["data"]["subreddit"], &post["data"]["subreddit_name_prefixed"]), (&"u_spez".into(), &"u/spez".into()));
+		assert_eq!(
+			(&post["data"]["subreddit"], &post["data"]["subreddit_name_prefixed"]),
+			(&"u_spez".into(), &"u/spez".into())
+		);
 	}
 
 	#[test]
@@ -1335,13 +1395,18 @@ mod tests {
 	fn test_subreddit_info_fixture() {
 		let about = subreddit(&fixture("subreddit_info.json")["data"]["subredditInfoByName"]).unwrap();
 		let val = |key| crate::utils::val(&about, key);
-		assert_eq!((val("display_name"), val("title")), ("rust".to_string(), "The Rust Programming Language".to_string()));
+		assert_eq!(
+			(val("display_name"), val("title")),
+			("rust".to_string(), "The Rust Programming Language".to_string())
+		);
 		assert!(val("public_description").starts_with("A place for all things related to the Rust"));
 		assert!(val("community_icon").starts_with("https://styles.redditmedia.com/"));
 		assert_eq!(about["data"]["subscribers"].as_u64(), Some(427823));
 		let html = val("description_html");
 		assert!(
-			html.contains(r#"<h3>Please read <a href="https://www.rust-lang.org/policies/code-of-conduct"><strong>The Rust Community Code of Conduct</strong></a></h3><hr>"#),
+			html.contains(
+				r#"<h3>Please read <a href="https://www.rust-lang.org/policies/code-of-conduct"><strong>The Rust Community Code of Conduct</strong></a></h3><hr>"#
+			),
 			"{html}"
 		);
 	}

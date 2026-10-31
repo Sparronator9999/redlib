@@ -68,7 +68,9 @@ pub static OAUTH_RATELIMIT_REMAINING: AtomicU16 = AtomicU16::new(99);
 
 /// Lower the local quota estimate by one, without ever wrapping below zero.
 pub fn burn_rate_limit_unit() {
-	OAUTH_RATELIMIT_REMAINING.try_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v.saturating_sub(1))).ok();
+	OAUTH_RATELIMIT_REMAINING
+		.try_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v.saturating_sub(1)))
+		.ok();
 }
 
 pub static OAUTH_IS_ROLLING_OVER: AtomicBool = AtomicBool::new(false);
@@ -257,7 +259,9 @@ pub(crate) fn current_emulation() -> usize {
 
 /// Reddit's fingerprint block page. Private or banned subs answer JSON 403s.
 pub(crate) fn is_fingerprint_block(status: u16, content_type: Option<&[u8]>, body: &[u8]) -> bool {
-	status == 403 && content_type.is_some_and(|v| v.starts_with(b"text/html")) && String::from_utf8_lossy(body).to_lowercase().contains("blocked by network security")
+	status == 403
+		&& content_type.is_some_and(|v| v.starts_with(b"text/html"))
+		&& String::from_utf8_lossy(body).to_lowercase().contains("blocked by network security")
 }
 
 /// Leaves emulation `index` out for `BLOCK_SECS` and switches away from it,
@@ -342,7 +346,12 @@ pub(crate) fn session_cookies() -> Vec<(String, String)> {
 		.map(|(i, part)| (format!("#{}", i + 1), part.to_string()))
 		.collect::<Vec<_>>();
 	let from_file = get_setting(REDDIT_COOKIE_FILE_SETTING)
-		.map(|path| COOKIE_FILE.lock().map(|mut file| file.sessions(Path::new(&path), now_secs())).unwrap_or_default())
+		.map(|path| {
+			COOKIE_FILE
+				.lock()
+				.map(|mut file| file.sessions(Path::new(&path), now_secs()))
+				.unwrap_or_default()
+		})
 		.unwrap_or_default();
 
 	let mut seen = std::collections::HashSet::new();
@@ -373,7 +382,10 @@ struct CookieFile {
 
 impl CookieFile {
 	fn sessions(&mut self, path: &Path, now: u64) -> Vec<(String, String)> {
-		if self.checked.is_none_or(|checked| now.saturating_sub(checked) >= REDDIT_COOKIE_FILE_RECHECK_SECS) {
+		if self
+			.checked
+			.is_none_or(|checked| now.saturating_sub(checked) >= REDDIT_COOKIE_FILE_RECHECK_SECS)
+		{
 			self.checked = Some(now);
 			self.reload(path);
 		}
@@ -401,8 +413,7 @@ impl CookieFile {
 
 /// The sessions in a session file: one per line, `#` starts a comment line.
 fn cookie_file_lines(text: &str) -> Vec<(String, String)> {
-	text
-		.lines()
+	text.lines()
 		.enumerate()
 		.map(|(i, line)| (format!("file line {}", i + 1), line.trim().to_string()))
 		.filter(|(_, line)| !line.is_empty() && !line.starts_with('#'))
@@ -535,12 +546,12 @@ pub async fn canonical_path(path: String, tries: i8) -> Result<Option<String>, S
 		// Special condition rate limiting - https://github.com/redlib-org/redlib/issues/229
 		403 if policy_error => Err("Too many requests.".to_string()),
 
-		_ => Ok(
-			res
-				.headers()
-				.get(wreq_header::LOCATION)
-				.map(|val| percent_encode(val.as_bytes(), CONTROLS).to_string().trim_start_matches(REDDIT_URL_BASE).to_string()),
-		),
+		_ => Ok(res.headers().get(wreq_header::LOCATION).map(|val| {
+			percent_encode(val.as_bytes(), CONTROLS)
+				.to_string()
+				.trim_start_matches(REDDIT_URL_BASE)
+				.to_string()
+		})),
 	}
 }
 
@@ -620,7 +631,14 @@ fn reddit_short_head(path: String, quarantine: bool, base_path: &'static str, ho
 /// Makes a request to Reddit. If `redirect` is `true`, `request_with_redirect`
 /// will recurse on the URL that Reddit provides in the Location HTTP header
 /// in its response.
-fn request(method: &'static Method, path: String, redirect: bool, quarantine: bool, base_path: &'static str, host: &'static str) -> Boxed<Result<WreqResponse, String>> {
+fn request(
+	method: &'static Method,
+	path: String,
+	redirect: bool,
+	quarantine: bool,
+	base_path: &'static str,
+	host: &'static str,
+) -> Boxed<Result<WreqResponse, String>> {
 	// Build Reddit URL from path.
 	let url = format!("{base_path}{path}");
 
@@ -850,7 +868,10 @@ mod tests {
 		let text = "# Account 1\nreddit_session=a\n\n  # Account 2\n  b  \n";
 		assert_eq!(
 			cookie_file_lines(text),
-			vec![("file line 2".to_string(), "reddit_session=a".to_string()), ("file line 5".to_string(), "b".to_string())]
+			vec![
+				("file line 2".to_string(), "reddit_session=a".to_string()),
+				("file line 5".to_string(), "b".to_string())
+			]
 		);
 	}
 
@@ -984,7 +1005,11 @@ mod tests {
 
 	#[test]
 	fn test_emulation_tables() {
-		let pairs = |table| flatten(table).into_iter().map(|f| (format!("{:?}", f.profile), format!("{:?}", f.platform), f.weight));
+		let pairs = |table| {
+			flatten(table)
+				.into_iter()
+				.map(|f| (format!("{:?}", f.profile), format!("{:?}", f.platform), f.weight))
+		};
 		let all: Vec<_> = pairs(EMULATIONS).collect();
 		assert!(all.iter().all(|(profile, ..)| !profile.starts_with("OkHttp")));
 		let unique: std::collections::HashSet<_> = all.iter().map(|(profile, platform, _)| (profile, platform)).collect();
@@ -1060,7 +1085,10 @@ mod tests {
 	#[ignore = "live: probes every fingerprint, run with --ignored"]
 	fn test_probe_fingerprints() {
 		use std::fmt::Write;
-		let tested: Vec<(String, String)> = flatten(TEST_EMULATIONS).iter().map(|f| (format!("{:?}", f.profile), format!("{:?}", f.platform))).collect();
+		let tested: Vec<(String, String)> = flatten(TEST_EMULATIONS)
+			.iter()
+			.map(|f| (format!("{:?}", f.profile), format!("{:?}", f.platform)))
+			.collect();
 		let mut table = String::from("| profile | platform | weight | token | json | gql | tests |\n|---|---|---|---|---|---|---|\n");
 		let mut broken = Vec::new();
 		let mut surprises = Vec::new();
@@ -1070,7 +1098,10 @@ mod tests {
 				let (token, json, gql) = probe(fingerprint.profile, fingerprint.platform).await;
 				let weight = if fingerprint.weight == SERVED { "served" } else { "refused" };
 				let in_tests = tested.contains(&(profile.clone(), platform.clone()));
-				let row = format!("| {profile} | {platform} | {weight} | {token} | {json} | {gql} | {} |", if in_tests { "yes" } else { "" });
+				let row = format!(
+					"| {profile} | {platform} | {weight} | {token} | {json} | {gql} | {} |",
+					if in_tests { "yes" } else { "" }
+				);
 				println!("{row}");
 				writeln!(table, "{row}").unwrap();
 				if in_tests && json != "ok" {

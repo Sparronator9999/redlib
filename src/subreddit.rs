@@ -2,8 +2,9 @@
 
 use crate::body::Body;
 use crate::utils::{
-	build_rss_items, catch_random, clean_url, enable_rss, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect, rewrite_urls,
-	rss_page_link, rss_page_path, rss_response, setting, setting_or_default, should_be_nsfw_gated, template, val, Post, Preferences, Subreddit, RSS_LISTING_SORTS,
+	build_rss_items, catch_random, clean_url, enable_rss, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect,
+	rewrite_urls, rss_page_link, rss_page_path, rss_response, setting, setting_or_default, should_be_nsfw_gated, template, val, Post, Preferences, Subreddit,
+	RSS_LISTING_SORTS,
 };
 use crate::{backends::json, server::RequestExt, server::ResponseExt};
 use askama::Template;
@@ -135,7 +136,11 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 		params.push_str(&format!("&limit={}", posts_per_page));
 	}
 
-	let path = format!("/r/{}/{sort}.json?{}{params}", sub_name.replace('+', "%2B"), req.uri().query().unwrap_or_default());
+	let path = format!(
+		"/r/{}/{sort}.json?{}{params}",
+		sub_name.replace('+', "%2B"),
+		req.uri().query().unwrap_or_default()
+	);
 	let url = String::from(req.uri().path_and_query().map_or("", |val| val.as_str()));
 	let redirect_url = url[1..].replace('?', "%3F").replace('&', "%26").replace('+', "%2B");
 	let filters = get_filters(&req);
@@ -289,8 +294,7 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 		Ok(posts) => posts["data"]["children"]
 			.as_array()
 			.map(|list| {
-				list
-					.iter()
+				list.iter()
 					.map(|post| {
 						let display_name = post["data"]["subreddit"].as_str().unwrap_or_default();
 						(display_name.to_lowercase(), display_name)
@@ -580,7 +584,11 @@ async fn subreddit(sub: &str, quarantined: bool) -> Result<Subreddit, String> {
 
 	// Fetch subreddit icon either from the community_icon or icon_img value
 	let community_icon: &str = res["data"]["community_icon"].as_str().unwrap_or_default();
-	let icon = if community_icon.is_empty() { val(&res, "icon_img") } else { community_icon.to_string() };
+	let icon = if community_icon.is_empty() {
+		val(&res, "icon_img")
+	} else {
+		community_icon.to_string()
+	};
 
 	Ok(Subreddit {
 		name: val(&res, "display_name"),

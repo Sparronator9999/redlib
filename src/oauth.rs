@@ -197,7 +197,10 @@ pub async fn force_refresh_token() {
 		return;
 	}
 
-	trace!("Rolling over refresh token. Current rate limit: {}", OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst));
+	trace!(
+		"Rolling over refresh token. Current rate limit: {}",
+		OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)
+	);
 	let new_client = Oauth::new().await;
 	OAUTH_CLIENT.swap(new_client.into());
 	OAUTH_RATELIMIT_REMAINING.store(99, Ordering::SeqCst);
@@ -255,7 +258,11 @@ impl MobileSpoofAuth {
 		// Send request
 		let resp = builder.json(&json).send().await?;
 
-		trace!("Received response with status {} and length {:?}", resp.status(), resp.headers().get("content-length"));
+		trace!(
+			"Received response with status {} and length {:?}",
+			resp.status(),
+			resp.headers().get("content-length")
+		);
 		trace!("OAuth headers: {:#?}", resp.headers());
 
 		// Parse headers - loid header _should_ be saved sent on subsequent token refreshes.
@@ -265,13 +272,15 @@ impl MobileSpoofAuth {
 		// and really only as privacy-concerning as the OAuth token itself.
 		if let Some(header) = resp.headers().get("x-reddit-loid") {
 			let header_val: &wreq::header::HeaderValue = header;
-			self.additional_headers.insert("x-reddit-loid".to_owned(), header_val.to_str().unwrap().to_string());
+			self.additional_headers
+				.insert("x-reddit-loid".to_owned(), header_val.to_str().unwrap().to_string());
 		}
 
 		// Same with x-reddit-session
 		if let Some(header) = resp.headers().get("x-reddit-session") {
 			let header_val: &wreq::header::HeaderValue = header;
-			self.additional_headers.insert("x-reddit-session".to_owned(), header_val.to_str().unwrap().to_string());
+			self.additional_headers
+				.insert("x-reddit-session".to_owned(), header_val.to_str().unwrap().to_string());
 		}
 
 		trace!("Serializing response...");
@@ -361,8 +370,7 @@ fn challenge_answer(page: &str) -> Option<(String, String)> {
 
 /// The `name=value` of every cookie a response sets.
 fn set_cookies(resp: &wreq::Response) -> Vec<String> {
-	resp
-		.headers()
+	resp.headers()
 		.get_all("set-cookie")
 		.iter()
 		.filter_map(|value| value.to_str().ok()?.split(';').next().map(str::to_string))
@@ -389,7 +397,12 @@ impl OauthBackend for GenericWebAuth {
 		let status = resp.status();
 		let page = resp.text().await?;
 		// Without the challenge, name what came instead (e.g. "Reddit - Prove your humanity")
-		let title = || format!("{status} {}", page.split("<title>").nth(1).and_then(|t| t.split('<').next()).unwrap_or_default().trim());
+		let title = || {
+			format!(
+				"{status} {}",
+				page.split("<title>").nth(1).and_then(|t| t.split('<').next()).unwrap_or_default().trim()
+			)
+		};
 		let (solution, jsc_token) = challenge_answer(&page).ok_or_else(|| AuthError::Field((title().into(), "JS challenge on www.reddit.com")))?;
 
 		trace!("Answering the GenericWebAuth challenge...");
@@ -539,9 +552,11 @@ mod tests {
 
 	#[test]
 	fn test_challenge_answer() {
-		let page =
-			r#"<script>e.elements.namedItem("solution").value=n,await (async e=>e+e)("dca4e9c023c34e03");</script><input type="hidden" name="jsc_token" value="2824be10"/>"#;
-		assert_eq!(challenge_answer(page), Some(("dca4e9c023c34e03dca4e9c023c34e03".to_string(), "2824be10".to_string())));
+		let page = r#"<script>e.elements.namedItem("solution").value=n,await (async e=>e+e)("dca4e9c023c34e03");</script><input type="hidden" name="jsc_token" value="2824be10"/>"#;
+		assert_eq!(
+			challenge_answer(page),
+			Some(("dca4e9c023c34e03dca4e9c023c34e03".to_string(), "2824be10".to_string()))
+		);
 		assert_eq!(challenge_answer("<html></html>"), None);
 	}
 

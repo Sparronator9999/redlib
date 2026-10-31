@@ -46,7 +46,10 @@ pub async fn instance_info(req: Request<Body>) -> Result<Response<Body>, String>
 			}
 			.render()
 			.unwrap();
-			Response::builder().status(404).header("content-type", "text/html; charset=utf-8").body(error.into())
+			Response::builder()
+				.status(404)
+				.header("content-type", "text/html; charset=utf-8")
+				.body(error.into())
 		}
 	};
 	response.map_err(|err| format!("{err}"))
@@ -72,7 +75,10 @@ fn info_html(req: &Request<Body>) -> Result<Response<Body>, Error> {
 	}
 	.render()
 	.unwrap();
-	Response::builder().status(200).header("content-type", "text/html; charset=utf8").body(Body::from(message))
+	Response::builder()
+		.status(200)
+		.header("content-type", "text/html; charset=utf8")
+		.body(Body::from(message))
 }
 #[derive(Serialize, Deserialize, Default)]
 pub struct InstanceInfo {
@@ -109,9 +115,9 @@ impl InstanceInfo {
 		let mut container = Container::default().with_attributes([("id", "instance_info")]);
 		if let Some(banner) = &self.config.banner {
 			container.add_header(3, "Instance banner");
-			container.add_raw("<br />");
+			container.add_raw("<br>");
 			container.add_paragraph(banner);
-			container.add_raw("<br />");
+			container.add_raw("<br>");
 		}
 		let source = crate::utils::get_source_url();
 		let commit = format!(
@@ -129,7 +135,10 @@ impl InstanceInfo {
 				["Deploy timestamp", &self.deploy_unix_ts.to_string()],
 				["Compile mode", &self.compile_mode],
 				["SFW only", &effective(&self.config.sfw_only, "off")],
-				["Pushshift frontend", &effective(&self.config.pushshift, crate::config::DEFAULT_PUSHSHIFT_FRONTEND)],
+				[
+					"Pushshift frontend",
+					&effective(&self.config.pushshift, crate::config::DEFAULT_PUSHSHIFT_FRONTEND),
+				],
 				["RSS enabled", &effective(&self.config.enable_rss, "off")],
 				["RedGifs enabled", &effective(&self.config.enable_redgifs, "on")],
 				["GIPHY enabled", &effective(&self.config.enable_giphy, "on")],
@@ -142,11 +151,13 @@ impl InstanceInfo {
 			])
 			.with_header_row(["Settings"]),
 		);
-		container.add_raw("<br />");
-		container
-			.add_table(Table::from(crate::backends::status().into_iter().map(|(kind, scores)| [kind.to_string(), scores])).with_header_row(["Backends, current order and score"]));
+		container.add_raw("<br>");
+		container.add_table(
+			Table::from(crate::backends::status().into_iter().map(|(kind, scores)| [kind.to_string(), scores]))
+				.with_header_row(["Backends, current order and score"]),
+		);
 		container.add_raw(SCORE_EXPLANATION);
-		container.add_raw("<br />");
+		container.add_raw("<br>");
 		container.add_table(
 			Table::from([
 				["Hide awards", &effective(&self.config.default_hide_awards, "off")],

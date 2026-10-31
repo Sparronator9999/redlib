@@ -6,8 +6,8 @@ use crate::reddit_health::{self, Outcome};
 use crate::server::RequestExt;
 use crate::subreddit::{can_access_quarantine, quarantine};
 use crate::utils::{
-	body_html, build_rss_comment_item, build_rss_item, clean_url, enable_rss, error, format_num, get_filters, nsfw_landing, param, parse_post, rewrite_emotes, rss_page_link,
-	rss_response, setting, sfw_only, template, time, val, Author, Awards, Comment, Flair, FlairPart, Post, Preferences,
+	body_html, build_rss_comment_item, build_rss_item, clean_url, enable_rss, error, format_num, get_filters, nsfw_landing, param, parse_post, rewrite_emotes,
+	rss_page_link, rss_response, setting, sfw_only, template, time, val, Author, Awards, Comment, Flair, FlairPart, Post, Preferences,
 };
 use askama::Template;
 use hyper::{Request, Response};
@@ -120,7 +120,15 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	let comments = match query.as_str() {
 		"" => parse_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &req),
-		_ => query_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &query, &req),
+		_ => query_comments(
+			&response[1],
+			&post.permalink,
+			&post.author.name,
+			highlighted_comment,
+			&get_filters(&req),
+			&query,
+			&req,
+		),
 	};
 
 	// Use the Post and Comment structs to generate a website to show users
@@ -243,7 +251,15 @@ fn query_comments(
 
 		// If this comment contains replies, handle those too
 		if data["replies"].is_object() {
-			results.append(&mut query_comments(&data["replies"], post_link, post_author, highlighted_comment, filters, query, req));
+			results.append(&mut query_comments(
+				&data["replies"],
+				post_link,
+				post_author,
+				highlighted_comment,
+				filters,
+				query,
+				req,
+			));
 		}
 
 		let c = build_comment(&comment, data, Vec::new(), post_link, post_author, highlighted_comment, filters, req);

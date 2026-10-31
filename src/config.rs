@@ -488,7 +488,11 @@ mod tests {
 	#[test]
 	#[sealed_test]
 	fn test_listener_settings_from_file() {
-		write("redlib.toml", "REDLIB_LISTEN_PORT = 8085\nREDLIB_LISTEN_ADDRESS = \"127.0.0.1\"\nREDLIB_IPV4_ONLY = true").unwrap();
+		write(
+			"redlib.toml",
+			"REDLIB_LISTEN_PORT = 8085\nREDLIB_LISTEN_ADDRESS = \"127.0.0.1\"\nREDLIB_IPV4_ONLY = true",
+		)
+		.unwrap();
 		assert_eq!(get_setting("REDLIB_LISTEN_PORT"), Some("8085".into()));
 		assert_eq!(get_setting("REDLIB_LISTEN_ADDRESS"), Some("127.0.0.1".into()));
 		assert_eq!(get_setting("REDLIB_IPV4_ONLY"), Some("on".into()));

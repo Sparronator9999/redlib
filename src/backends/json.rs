@@ -2,7 +2,8 @@
 
 use super::{check_json, non_json_failure, Backend, Failure, Fetch, Kind};
 use crate::client::{
-	burn_rate_limit_unit, current_emulation, fingerprint_blocked, is_fingerprint_block, reddit_get, IntoHyperResponse, OAUTH_IS_ROLLING_OVER, OAUTH_RATELIMIT_REMAINING,
+	burn_rate_limit_unit, current_emulation, fingerprint_blocked, is_fingerprint_block, reddit_get, IntoHyperResponse, OAUTH_IS_ROLLING_OVER,
+	OAUTH_RATELIMIT_REMAINING,
 };
 use crate::oauth::force_refresh_token;
 use bytes::Buf;
@@ -57,9 +58,18 @@ async fn fetch(path: &str, quarantine: bool) -> Result<Value, Failure> {
 	}
 
 	let reset = match (
-		response.headers().get("x-ratelimit-remaining").and_then(|val| val.to_str().ok().map(|s| s.to_string())),
-		response.headers().get("x-ratelimit-reset").and_then(|val| val.to_str().ok().map(|s| s.to_string())),
-		response.headers().get("x-ratelimit-used").and_then(|val| val.to_str().ok().map(|s| s.to_string())),
+		response
+			.headers()
+			.get("x-ratelimit-remaining")
+			.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
+		response
+			.headers()
+			.get("x-ratelimit-reset")
+			.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
+		response
+			.headers()
+			.get("x-ratelimit-used")
+			.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
 	) {
 		(Some(remaining), Some(reset), Some(used)) => {
 			trace!(

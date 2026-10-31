@@ -50,14 +50,24 @@ fn assert_posts(listing: &Value, what: &str) {
 fn assert_thread(thread: &Value, what: &str) {
 	assert_post(&children(&thread[0], what)[0], what);
 	let comments = children(&thread[1], what);
-	let comment = &comments.iter().find(|c| c["kind"] == "t1").unwrap_or_else(|| panic!("{what}: no comments: {thread}"))["data"];
-	assert!(comment["body"].as_str().is_some_and(|b| !b.is_empty()), "{what}: comment without body: {comment}");
+	let comment = &comments
+		.iter()
+		.find(|c| c["kind"] == "t1")
+		.unwrap_or_else(|| panic!("{what}: no comments: {thread}"))["data"];
+	assert!(
+		comment["body"].as_str().is_some_and(|b| !b.is_empty()),
+		"{what}: comment without body: {comment}"
+	);
 	assert!(comment["author"].as_str().is_some(), "{what}: comment without author: {comment}");
 }
 
 fn assert_subreddit(about: &Value, what: &str) {
 	assert_eq!(about["kind"], "t5", "{what}: {about}");
-	assert_eq!(about["data"]["display_name"].as_str().map(str::to_lowercase).as_deref(), Some("rust"), "{what}: {about}");
+	assert_eq!(
+		about["data"]["display_name"].as_str().map(str::to_lowercase).as_deref(),
+		Some("rust"),
+		"{what}: {about}"
+	);
 }
 
 fn assert_user(about: &Value, what: &str) {
@@ -127,10 +137,16 @@ fn test_gql_search() {
 	let first = &children(&page, "gql search")[0]["data"]["id"];
 	assert!(children(&next, "gql search page 2").iter().all(|p| &p["data"]["id"] != first), "{next}");
 
-	assert_posts(&get(&Gql, "/search.json?q=rust&sort=top&t=week&post_types=text&raw_json=1"), "gql search top text posts");
+	assert_posts(
+		&get(&Gql, "/search.json?q=rust&sort=top&t=week&post_types=text&raw_json=1"),
+		"gql search top text posts",
+	);
 	let in_sub = get(&Gql, "/r/rust/search.json?q=async&restrict_sr=on&raw_json=1");
 	assert_posts(&in_sub, "gql search in subreddit");
-	assert!(children(&in_sub, "gql search in subreddit").iter().all(|p| p["data"]["subreddit"] == "rust"), "{in_sub}");
+	assert!(
+		children(&in_sub, "gql search in subreddit").iter().all(|p| p["data"]["subreddit"] == "rust"),
+		"{in_sub}"
+	);
 }
 
 #[test]
@@ -144,7 +160,10 @@ fn test_gql_search_media() {
 			"gql media search: no media: {data}"
 		);
 	}
-	assert_posts(&get(&Gql, "/search.json?q=aurora&type=media&post_types=gif&raw_json=1"), "gql media search for GIFs");
+	assert_posts(
+		&get(&Gql, "/search.json?q=aurora&type=media&post_types=gif&raw_json=1"),
+		"gql media search for GIFs",
+	);
 }
 
 #[test]
@@ -154,7 +173,10 @@ fn test_gql_search_comments() {
 		assert_eq!(comment["kind"], "t1", "{comment}");
 		let data = &comment["data"];
 		for field in ["id", "author", "body_html", "link_title", "permalink", "subreddit"] {
-			assert!(data[field].as_str().is_some_and(|v| !v.is_empty()), "gql comment search: comment without {field}: {data}");
+			assert!(
+				data[field].as_str().is_some_and(|v| !v.is_empty()),
+				"gql comment search: comment without {field}: {data}"
+			);
 		}
 	}
 }
@@ -180,7 +202,9 @@ fn test_gql_search_people() {
 fn test_gql_user() {
 	assert_user(&get(&Gql, "/user/spez/about.json?raw_json=1"), "gql user");
 	assert!(
-		get(&Gql, "/user/spez/about.json?raw_json=1")["data"]["total_karma"].as_i64().is_some_and(|k| k > 0),
+		get(&Gql, "/user/spez/about.json?raw_json=1")["data"]["total_karma"]
+			.as_i64()
+			.is_some_and(|k| k > 0),
 		"gql user karma (SearchPeople)"
 	);
 	assert_posts(&get(&Gql, "/user/spez/submitted.json?raw_json=1"), "gql user posts");

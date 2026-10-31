@@ -303,7 +303,9 @@ impl Server {
 
 	pub fn listen(self, addr: &str) -> Boxed<Result<(), std::io::Error>> {
 		// Build SocketAddr from provided address
-		let address: std::net::SocketAddr = addr.parse().unwrap_or_else(|_| panic!("Cannot parse {addr} as address (example format: 0.0.0.0:8080)"));
+		let address: std::net::SocketAddr = addr
+			.parse()
+			.unwrap_or_else(|_| panic!("Cannot parse {addr} as address (example format: 0.0.0.0:8080)"));
 
 		let router = std::sync::Arc::new(self.router);
 		let default_headers = self.default_headers;
@@ -848,8 +850,7 @@ mod tests {
 			// If the content was compressed, we expect the Content-Encoding
 			// header to be modified.
 			assert_eq!(
-				res
-					.headers()
+				res.headers()
 					.get(header::CONTENT_ENCODING)
 					.unwrap_or_else(|| panic!("missing content-encoding header"))
 					.to_str()

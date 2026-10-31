@@ -63,7 +63,9 @@ impl Backend for ObscuraCookiedJson {
 
 	fn fetch<'a>(&'a self, path: &'a str, _quarantine: bool) -> Fetch<'a> {
 		Box::pin(async move {
-			let (status, body) = get(path).await.map_err(|e| Failure::Network(format!("Couldn't send request to Reddit: {e} | {path}")))?;
+			let (status, body) = get(path)
+				.await
+				.map_err(|e| Failure::Network(format!("Couldn't send request to Reddit: {e} | {path}")))?;
 			match serde_json::from_slice::<Value>(&body) {
 				Ok(json) => check_json(json, path).await,
 				Err(e) => Err(match status {
