@@ -74,6 +74,24 @@
     "REDLIB_ENABLE_RSS": {
       "required": false
     },
+    "REDLIB_ENABLE_REDGIFS": {
+      "required": false
+    },
+    "REDLIB_ENABLE_GIPHY": {
+      "required": false
+    },
+    "REDLIB_ENABLE_SCRAPE_FALLBACK": {
+      "required": false
+    },
+    "REDLIB_ENABLE_GQL": {
+      "required": false
+    },
+    "REDLIB_SCRAPE_COMMENT_PREFETCH": {
+      "required": false
+    },
+    "REDLIB_GQL_FEED_REQUESTS": {
+      "required": false
+    },
     "REDLIB_FULL_URL": {
       "required": false
     },
@@ -88,6 +106,9 @@
     },
     "REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH": {
         "required": false
+    },
+    "REDLIB_DEFAULT_GEO_FILTER": {
+      "required": false
     }
   }
 }

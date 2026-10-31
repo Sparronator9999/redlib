@@ -4,10 +4,10 @@ on:
   push:
     paths-ignore:
       - "**.md"
-  
+
     branches:
       - 'main'
-  
+
   release:
     types: [published]
 
@@ -43,7 +43,7 @@ jobs:
       - name: Versions
         id: version
         run: echo "VERSION=$(cargo metadata --format-version 1 --no-deps | jq .packages[0].version -r | sed 's/^/v/')" >> "$GITHUB_OUTPUT"
-        
+
       # Publishing actions
 
       - name: Publish to crates.io
@@ -64,7 +64,7 @@ jobs:
             target/x86_64-unknown-linux-musl/release/redlib
             redlib.sha512
             redlib.sha256
-        
+
 
       - name: Release
         uses: softprops/action-gh-release@v1

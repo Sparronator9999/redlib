@@ -14,22 +14,22 @@ rust-version = "1.92"
 default-run = "redlib"
 
 [dependencies]
-arc-swap = "1.9.2"
+arc-swap = "1.9.3"
 askama = { version = "0.16.1", default-features = false, features = [
     "std",
     "derive",
 ] }
-async-recursion = "1.1.1"
 base2048 = "2.0.2"
-base64 = "0.23.0"
+base64 = "0.23.1"
 bincode = "1.3.3"
 build_html = "2.8.0"
-cached = { version = "4.0.0", features = ["async"] }
+cached = { version = "4.0.3", features = ["async"] }
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
-clap = { version = "4.6.6", default-features = false, features = [
+clap = { version = "4.6.7", default-features = false, features = [
     "std",
     "env",
     "derive",
+    "error-context",
 ] }
 clearurls = "0.0.4"
 cookie = "0.18.2"
@@ -38,30 +38,44 @@ fake_user_agent = "0.2.3"
 fastrand = "2.5.0"
 futures-lite = "2.6.1"
 htmlescape = "0.3.1"
-hyper = { version = "0.14.32", features = ["full"] }
+hyper = { version = "1.12.0", features = ["http1", "server"] }
 libflate = "2.3.2"
 log = "0.4.34"
 percent-encoding = "2.3.2"
 pretty_env_logger = "0.5.0"
-pulldown-cmark = { version = "0.13.4", features = ["simd", "html"], default-features = false }
+pulldown-cmark = { version = "0.13.5", features = ["simd", "html"], default-features = false }
 regex = "1.13.1"
 revision = "0.30.0"
 route-recognizer = "0.3.1"
 rss = "2.1.2"
-rust-embed = { version = "8.12.0", features = ["include-exclude"] }
+rust-embed = { version = "8.13.0", features = ["include-exclude"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = "1.0.154"
 serde_json_path = "0.7.2"
 serde_urlencoded = "0.7.1"
 tegen = "0.1.4"
 time = { version = "0.3.55", features = ["local-offset"] }
-tokio = { version = "1.53.1", features = ["full"] }
-toml = "1.1.6"
+tokio = { version = "1.54.1", features = ["full"] }
+toml = "1.1.8"
 url = "2.5.8"
-uuid = { version = "1.26.1", features = ["v4"] }
-wreq = { version = "6.0.0-rc.31", features = ["brotli", "gzip", "deflate", "zstd", "json", "stream", "socks"] }
-wreq-util = "3.0.0-rc.14"
+uuid = { version = "1.29.0", features = ["v4"] }
+wreq = { version = "6.0.0-rc.29", features = ["brotli", "gzip", "deflate", "zstd", "json", "stream", "socks", "cookies"] }
+wreq-util = { version = "3.0.0-rc.12" }
 yaml_serde = "0.10"
+hyper-util = { version = "0.1.21", features = ["tokio", "server", "server-auto", "server-graceful", "http1", "http2"] }
+http-body = "1.1.0"
+http-body-util = "0.1.5"
+bytes = "1.12.1"
+brotli = { version = "9.1.1", features = ["std"] }
+async-recursion = "1.2.0"
+scraper = { version = "0.29.0", default-features = false }
+obscura = { git = "https://github.com/h4ckf0r0day/obscura", rev = "3285fbc2357a60aa3a8dcce9fda95a155099fc42", features = ["stealth"], optional = true }
+syntect = { version = "5.3.0", default-features = false, features = ["default-syntaxes", "html", "regex-fancy", "parsing"] }
+
+[features]
+default = []
+obscura = ["dep:obscura"]
+
 
 [dev-dependencies]
 lipsum = "0.9.1"

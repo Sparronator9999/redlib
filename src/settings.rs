@@ -3,13 +3,13 @@
 use std::collections::HashMap;
 
 // CRATES
+use crate::body::Body;
 use crate::server::ResponseExt;
 use crate::subreddit::join_until_size_limit;
 use crate::utils::{deflate_decompress, redirect, template, Preferences};
 use askama::Template;
 use cookie::Cookie;
-use futures_lite::StreamExt;
-use hyper::{Body, Request, Response};
+use hyper::{Request, Response};
 use time::{Duration, OffsetDateTime};
 use tokio::time::timeout;
 use url::form_urlencoded;
@@ -25,7 +25,7 @@ struct SettingsTemplate {
 
 // CONSTANTS
 
-const PREFS: [&str; 22] = [
+const PREFS: [&str; 23] = [
 	"theme",
 	"front_page",
 	"layout",
@@ -45,9 +45,263 @@ const PREFS: [&str; 22] = [
 	"disable_visit_reddit_confirmation",
 	"video_quality",
 	"remove_default_feeds",
+	"geo_filter",
 	"clean_urls",
 	"posts_per_page",
 	"max_comment_thread_depth",
+];
+
+pub static GEO_FILTERS: [(&str, &str); 250] = [
+	("GLOBAL", "🌐 Global"),
+	("AF", "🇦🇫 Afghanistan"),
+	("AX", "🇦🇽 Åland Islands"),
+	("AL", "🇦🇱 Albania"),
+	("DZ", "🇩🇿 Algeria"),
+	("AS", "🇦🇸 American Samoa"),
+	("AD", "🇦🇩 Andorra"),
+	("AO", "🇦🇴 Angola"),
+	("AI", "🇦🇮 Anguilla"),
+	("AQ", "🇦🇶 Antarctica"),
+	("AG", "🇦🇬 Antigua and Barbuda"),
+	("AR", "🇦🇷 Argentina"),
+	("AM", "🇦🇲 Armenia"),
+	("AW", "🇦🇼 Aruba"),
+	("AU", "🇦🇺 Australia"),
+	("AT", "🇦🇹 Austria"),
+	("AZ", "🇦🇿 Azerbaijan"),
+	("BS", "🇧🇸 Bahamas"),
+	("BH", "🇧🇭 Bahrain"),
+	("BD", "🇧🇩 Bangladesh"),
+	("BB", "🇧🇧 Barbados"),
+	("BY", "🇧🇾 Belarus"),
+	("BE", "🇧🇪 Belgium"),
+	("BZ", "🇧🇿 Belize"),
+	("BJ", "🇧🇯 Benin"),
+	("BM", "🇧🇲 Bermuda"),
+	("BT", "🇧🇹 Bhutan"),
+	("BO", "🇧🇴 Bolivia"),
+	("BA", "🇧🇦 Bosnia and Herzegovina"),
+	("BW", "🇧🇼 Botswana"),
+	("BV", "🇧🇻 Bouvet Island"),
+	("BR", "🇧🇷 Brazil"),
+	("IO", "🇮🇴 British Indian Ocean Territory"),
+	("VG", "🇻🇬 British Virgin Islands"),
+	("BN", "🇧🇳 Brunei"),
+	("BG", "🇧🇬 Bulgaria"),
+	("BF", "🇧🇫 Burkina Faso"),
+	("BI", "🇧🇮 Burundi"),
+	("KH", "🇰🇭 Cambodia"),
+	("CM", "🇨🇲 Cameroon"),
+	("CA", "🇨🇦 Canada"),
+	("CV", "🇨🇻 Cape Verde"),
+	("BQ", "🇧🇶 Caribbean Netherlands"),
+	("KY", "🇰🇾 Cayman Islands"),
+	("CF", "🇨🇫 Central African Republic"),
+	("TD", "🇹🇩 Chad"),
+	("CL", "🇨🇱 Chile"),
+	("CN", "🇨🇳 China"),
+	("CX", "🇨🇽 Christmas Island"),
+	("CC", "🇨🇨 Cocos (Keeling) Islands"),
+	("CO", "🇨🇴 Colombia"),
+	("KM", "🇰🇲 Comoros"),
+	("CG", "🇨🇬 Congo"),
+	("CK", "🇨🇰 Cook Islands"),
+	("CR", "🇨🇷 Costa Rica"),
+	("CI", "🇨🇮 Côte d'Ivoire"),
+	("HR", "🇭🇷 Croatia"),
+	("CU", "🇨🇺 Cuba"),
+	("CW", "🇨🇼 Curaçao"),
+	("CY", "🇨🇾 Cyprus"),
+	("CZ", "🇨🇿 Czechia"),
+	("DK", "🇩🇰 Denmark"),
+	("DJ", "🇩🇯 Djibouti"),
+	("DM", "🇩🇲 Dominica"),
+	("DO", "🇩🇴 Dominican Republic"),
+	("CD", "🇨🇩 DR Congo"),
+	("EC", "🇪🇨 Ecuador"),
+	("EG", "🇪🇬 Egypt"),
+	("SV", "🇸🇻 El Salvador"),
+	("GQ", "🇬🇶 Equatorial Guinea"),
+	("ER", "🇪🇷 Eritrea"),
+	("EE", "🇪🇪 Estonia"),
+	("SZ", "🇸🇿 Eswatini"),
+	("ET", "🇪🇹 Ethiopia"),
+	("FK", "🇫🇰 Falkland Islands"),
+	("FO", "🇫🇴 Faroe Islands"),
+	("FJ", "🇫🇯 Fiji"),
+	("FI", "🇫🇮 Finland"),
+	("FR", "🇫🇷 France"),
+	("GF", "🇬🇫 French Guiana"),
+	("PF", "🇵🇫 French Polynesia"),
+	("TF", "🇹🇫 French Southern Territories"),
+	("GA", "🇬🇦 Gabon"),
+	("GM", "🇬🇲 Gambia"),
+	("GE", "🇬🇪 Georgia"),
+	("DE", "🇩🇪 Germany"),
+	("GH", "🇬🇭 Ghana"),
+	("GI", "🇬🇮 Gibraltar"),
+	("GR", "🇬🇷 Greece"),
+	("GL", "🇬🇱 Greenland"),
+	("GD", "🇬🇩 Grenada"),
+	("GP", "🇬🇵 Guadeloupe"),
+	("GU", "🇬🇺 Guam"),
+	("GT", "🇬🇹 Guatemala"),
+	("GG", "🇬🇬 Guernsey"),
+	("GN", "🇬🇳 Guinea"),
+	("GW", "🇬🇼 Guinea-Bissau"),
+	("GY", "🇬🇾 Guyana"),
+	("HT", "🇭🇹 Haiti"),
+	("HM", "🇭🇲 Heard & McDonald Islands"),
+	("HN", "🇭🇳 Honduras"),
+	("HK", "🇭🇰 Hong Kong"),
+	("HU", "🇭🇺 Hungary"),
+	("IS", "🇮🇸 Iceland"),
+	("IN", "🇮🇳 India"),
+	("ID", "🇮🇩 Indonesia"),
+	("IR", "🇮🇷 Iran"),
+	("IQ", "🇮🇶 Iraq"),
+	("IE", "🇮🇪 Ireland"),
+	("IM", "🇮🇲 Isle of Man"),
+	("IL", "🇮🇱 Israel"),
+	("IT", "🇮🇹 Italy"),
+	("JM", "🇯🇲 Jamaica"),
+	("JP", "🇯🇵 Japan"),
+	("JE", "🇯🇪 Jersey"),
+	("JO", "🇯🇴 Jordan"),
+	("KZ", "🇰🇿 Kazakhstan"),
+	("KE", "🇰🇪 Kenya"),
+	("KI", "🇰🇮 Kiribati"),
+	("KW", "🇰🇼 Kuwait"),
+	("KG", "🇰🇬 Kyrgyzstan"),
+	("LA", "🇱🇦 Laos"),
+	("LV", "🇱🇻 Latvia"),
+	("LB", "🇱🇧 Lebanon"),
+	("LS", "🇱🇸 Lesotho"),
+	("LR", "🇱🇷 Liberia"),
+	("LY", "🇱🇾 Libya"),
+	("LI", "🇱🇮 Liechtenstein"),
+	("LT", "🇱🇹 Lithuania"),
+	("LU", "🇱🇺 Luxembourg"),
+	("MO", "🇲🇴 Macao"),
+	("MG", "🇲🇬 Madagascar"),
+	("MW", "🇲🇼 Malawi"),
+	("MY", "🇲🇾 Malaysia"),
+	("MV", "🇲🇻 Maldives"),
+	("ML", "🇲🇱 Mali"),
+	("MT", "🇲🇹 Malta"),
+	("MH", "🇲🇭 Marshall Islands"),
+	("MQ", "🇲🇶 Martinique"),
+	("MR", "🇲🇷 Mauritania"),
+	("MU", "🇲🇺 Mauritius"),
+	("YT", "🇾🇹 Mayotte"),
+	("MX", "🇲🇽 Mexico"),
+	("FM", "🇫🇲 Micronesia"),
+	("MD", "🇲🇩 Moldova"),
+	("MC", "🇲🇨 Monaco"),
+	("MN", "🇲🇳 Mongolia"),
+	("ME", "🇲🇪 Montenegro"),
+	("MS", "🇲🇸 Montserrat"),
+	("MA", "🇲🇦 Morocco"),
+	("MZ", "🇲🇿 Mozambique"),
+	("MM", "🇲🇲 Myanmar"),
+	("NA", "🇳🇦 Namibia"),
+	("NR", "🇳🇷 Nauru"),
+	("NP", "🇳🇵 Nepal"),
+	("NL", "🇳🇱 Netherlands"),
+	("NC", "🇳🇨 New Caledonia"),
+	("NZ", "🇳🇿 New Zealand"),
+	("NI", "🇳🇮 Nicaragua"),
+	("NE", "🇳🇪 Niger"),
+	("NG", "🇳🇬 Nigeria"),
+	("NU", "🇳🇺 Niue"),
+	("NF", "🇳🇫 Norfolk Island"),
+	("KP", "🇰🇵 North Korea"),
+	("MK", "🇲🇰 North Macedonia"),
+	("MP", "🇲🇵 Northern Mariana Islands"),
+	("NO", "🇳🇴 Norway"),
+	("OM", "🇴🇲 Oman"),
+	("PK", "🇵🇰 Pakistan"),
+	("PW", "🇵🇼 Palau"),
+	("PS", "🇵🇸 Palestine"),
+	("PA", "🇵🇦 Panama"),
+	("PG", "🇵🇬 Papua New Guinea"),
+	("PY", "🇵🇾 Paraguay"),
+	("PE", "🇵🇪 Peru"),
+	("PH", "🇵🇭 Philippines"),
+	("PN", "🇵🇳 Pitcairn"),
+	("PL", "🇵🇱 Poland"),
+	("PT", "🇵🇹 Portugal"),
+	("PR", "🇵🇷 Puerto Rico"),
+	("QA", "🇶🇦 Qatar"),
+	("RE", "🇷🇪 Réunion"),
+	("RO", "🇷🇴 Romania"),
+	("RU", "🇷🇺 Russia"),
+	("RW", "🇷🇼 Rwanda"),
+	("BL", "🇧🇱 Saint Barthélemy"),
+	("SH", "🇸🇭 Saint Helena"),
+	("KN", "🇰🇳 Saint Kitts and Nevis"),
+	("LC", "🇱🇨 Saint Lucia"),
+	("MF", "🇲🇫 Saint Martin"),
+	("PM", "🇵🇲 Saint Pierre and Miquelon"),
+	("VC", "🇻🇨 Saint Vincent and the Grenadines"),
+	("WS", "🇼🇸 Samoa"),
+	("SM", "🇸🇲 San Marino"),
+	("ST", "🇸🇹 Sao Tome and Principe"),
+	("SA", "🇸🇦 Saudi Arabia"),
+	("SN", "🇸🇳 Senegal"),
+	("RS", "🇷🇸 Serbia"),
+	("SC", "🇸🇨 Seychelles"),
+	("SL", "🇸🇱 Sierra Leone"),
+	("SG", "🇸🇬 Singapore"),
+	("SX", "🇸🇽 Sint Maarten"),
+	("SK", "🇸🇰 Slovakia"),
+	("SI", "🇸🇮 Slovenia"),
+	("SB", "🇸🇧 Solomon Islands"),
+	("SO", "🇸🇴 Somalia"),
+	("ZA", "🇿🇦 South Africa"),
+	("GS", "🇬🇸 South Georgia and the South Sandwich Islands"),
+	("KR", "🇰🇷 South Korea"),
+	("SS", "🇸🇸 South Sudan"),
+	("ES", "🇪🇸 Spain"),
+	("LK", "🇱🇰 Sri Lanka"),
+	("SD", "🇸🇩 Sudan"),
+	("SR", "🇸🇷 Suriname"),
+	("SJ", "🇸🇯 Svalbard and Jan Mayen"),
+	("SE", "🇸🇪 Sweden"),
+	("CH", "🇨🇭 Switzerland"),
+	("SY", "🇸🇾 Syria"),
+	("TW", "🇹🇼 Taiwan"),
+	("TJ", "🇹🇯 Tajikistan"),
+	("TZ", "🇹🇿 Tanzania"),
+	("TH", "🇹🇭 Thailand"),
+	("TL", "🇹🇱 Timor-Leste"),
+	("TG", "🇹🇬 Togo"),
+	("TK", "🇹🇰 Tokelau"),
+	("TO", "🇹🇴 Tonga"),
+	("TT", "🇹🇹 Trinidad and Tobago"),
+	("TN", "🇹🇳 Tunisia"),
+	("TR", "🇹🇷 Türkiye"),
+	("TM", "🇹🇲 Turkmenistan"),
+	("TC", "🇹🇨 Turks and Caicos Islands"),
+	("TV", "🇹🇻 Tuvalu"),
+	("UM", "🇺🇲 U.S. Outlying Islands"),
+	("VI", "🇻🇮 U.S. Virgin Islands"),
+	("UG", "🇺🇬 Uganda"),
+	("UA", "🇺🇦 Ukraine"),
+	("AE", "🇦🇪 United Arab Emirates"),
+	("GB", "🇬🇧 United Kingdom"),
+	("US", "🇺🇸 United States"),
+	("UY", "🇺🇾 Uruguay"),
+	("UZ", "🇺🇿 Uzbekistan"),
+	("VU", "🇻🇺 Vanuatu"),
+	("VA", "🇻🇦 Vatican City"),
+	("VE", "🇻🇪 Venezuela"),
+	("VN", "🇻🇳 Vietnam"),
+	("WF", "🇼🇫 Wallis and Futuna"),
+	("EH", "🇪🇭 Western Sahara"),
+	("YE", "🇾🇪 Yemen"),
+	("ZM", "🇿🇲 Zambia"),
+	("ZW", "🇿🇼 Zimbabwe"),
 ];
 
 // FUNCTIONS
@@ -69,7 +323,7 @@ pub async fn get(req: Request<Body>) -> Result<Response<Body>, String> {
 /// Set cookies using response "Set-Cookie" header
 pub async fn set(req: Request<Body>) -> Result<Response<Body>, String> {
 	// Split the body into parts
-	let (parts, mut body) = req.into_parts();
+	let (parts, body) = req.into_parts();
 
 	// Grab existing cookies
 	let _cookies: Vec<Cookie<'_>> = parts
@@ -80,19 +334,18 @@ pub async fn set(req: Request<Body>) -> Result<Response<Body>, String> {
 		.collect();
 
 	// Aggregate the body...
-	// let whole_body = hyper::body::aggregate(req).await.map_err(|e| e.to_string())?;
-	let body_bytes = body
-		.try_fold(Vec::new(), |mut data, chunk| {
-			data.extend_from_slice(&chunk);
-			Ok(data)
-		})
-		.await
-		.map_err(|e| e.to_string())?;
+	let body_bytes = body.collect_bytes().await.map_err(|e| e.to_string())?;
 
 	let form = url::form_urlencoded::parse(&body_bytes).collect::<HashMap<_, _>>();
 
 	let mut response = match form.get("return_to") {
-		Some(value) => if value.is_empty() { redirect("/settings") } else { redirect(value) },
+		Some(value) => {
+			if value.is_empty() {
+				redirect("/settings")
+			} else {
+				redirect(value)
+			}
+		}
 		None => redirect("/settings"),
 	};
 
@@ -285,9 +538,7 @@ pub async fn update(req: Request<Body>) -> Result<Response<Body>, String> {
 }
 
 pub async fn encoded_restore(req: Request<Body>) -> Result<Response<Body>, String> {
-	let body = hyper::body::to_bytes(req.into_body())
-		.await
-		.map_err(|e| format!("Failed to get bytes from request body: {e}"))?;
+	let body = req.into_body().collect_bytes().await.map_err(|e| format!("Failed to get bytes from request body: {e}"))?;
 
 	if body.len() > 1024 * 1024 {
 		return Err("Request body too large".to_string());
@@ -304,7 +555,7 @@ pub async fn encoded_restore(req: Request<Body>) -> Result<Response<Body>, Strin
 		.await
 		.map_err(|e| format!("Failed to decompress bytes: {e}"))??;
 
-	let mut prefs: Preferences = timeout(std::time::Duration::from_secs(1), async { bincode::deserialize(&out) })
+	let mut prefs: Preferences = timeout(std::time::Duration::from_secs(1), async { Preferences::from_bincode(&out) })
 		.await
 		.map_err(|e| format!("Failed to deserialize preferences: {e}"))?
 		.map_err(|e| format!("Failed to deserialize bytes into Preferences struct: {e}"))?;

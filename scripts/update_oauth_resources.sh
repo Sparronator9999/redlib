@@ -26,33 +26,73 @@ get_random_user_agent() {
 	echo "${USER_AGENTS[$RANDOM % ${#USER_AGENTS[@]}]}"
 }
 
-# Fetch Android app versions from APKMirror
-page_1=$(curl -s -H "User-Agent: $(get_random_user_agent)" "https://www.apkmirror.com/uploads/?devcategory=redditinc" | rg 'href="(/apk/redditinc/reddit/reddit-[0-9]+-[0-9]+-[0-9]+-release/)"' -o -r "https://www.apkmirror.com\$1" | sort -u)
-page_2=$(curl -s -H "User-Agent: $(get_random_user_agent)" "https://www.apkmirror.com/uploads/page/2/?devcategory=redditinc" | rg 'href="(/apk/redditinc/reddit/reddit-[0-9]+-[0-9]+-[0-9]+-release/)"' -o -r "https://www.apkmirror.com\$1" | sort -u)
+# Fetch Android app versions from APKMirror. Each APK download page also lists
+# the versions (with build numbers) released around it, so only releases whose
+# version hasn't been seen yet are fetched.
+ua="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+apkmirror="https://www.apkmirror.com"
+releases=""
+for page in "" "page/2/" "page/3/"; do
+  releases+=$(curl -s -A "$ua" "$apkmirror/apk/redditinc/reddit/$page" | rg -o '/apk/redditinc/reddit/reddit-20\d{2}-\d+-\d+-release/' | uniq)
+  releases+=$'\n'
+  sleep 1
+done
 
-# Concatenate all pages
-versions="${page_1}\n{page_2}"
+versions=""
+while IFS= read -r release; do
+  [ -z "$release" ] && continue
+  # reddit-2026-42-0-release -> 2026.42.0
+  version=$(echo "$release" | rg -o 'reddit-(20\d{2})-(\d+)-(\d+)-release' -r '$1.$2.$3')
+  echo "$versions" | rg -qF "Version $version/" && continue
+
+  download=$(curl -s -A "$ua" "$apkmirror$release" | rg -o "$release[^\"]*-android-apk-download/" | head -n1)
+  sleep 1
+  [ -z "$download" ] && continue
+  found=$(curl -s -A "$ua" "$apkmirror$download" | sed 's/<[^>]*>/ /g' | rg -o 'Version: *(20\d{2}\.\d+\.\d+) *\((\d+)\)' -r 'Version $1/Build $2')
+  sleep 1
+  versions+="$found"$'\n'
+  echo -e "Fetched \e[32m$(echo "$found" | wc -l) versions\e[0m around $version."
+done <<< "$releases"
+
+versions=$(echo "$versions" | rg . | sort -u -V -r)
+if [ -z "$versions" ]; then
+  echo "Failed to fetch Android app versions, restore $filename with git" >&2
+  exit 1
+fi
 
 # Count the number of lines in the version list
 android_count=$(echo "$versions" | wc -l)
 
-echo -e "Fetching \e[32m$android_count Android app versions...\e[0m"
+echo -e "Fetched \e[32m$android_count Android app versions.\e[0m"
 
 # Append to the source file
 echo "pub const ANDROID_APP_VERSION_LIST: &[&str; $android_count] = &[" >> "$filename"
 
+echo "$versions" | while IFS= read -r line; do
+  echo "	\"$line\"," >> "$filename"
+done
+
+# Close the array in the source file
+echo "];" >> "$filename"
+
+# Retrieve iOS versions
+table=$(curl -s "https://en.wikipedia.org/w/api.php?action=parse&page=IOS_17&prop=wikitext&section=31&format=json" | jq ".parse.wikitext.\"*\"" | rg "(17\.[\d\.]*)\\\n\|(\w*)\\\n\|" --only-matching -r "Version \$1 (Build \$2)")
+
+# Count the number of lines in the version list
+ios_count=$(echo "$table" | wc -l)
+
+echo -e "Fetching \e[34m$ios_count iOS versions...\e[0m"
+
+# Append to the source file
+echo "pub const _IOS_OS_VERSION_LIST: &[&str; $ios_count] = &[" >> "$filename"
+
 num=0
 
 # For each in versions, curl the page and extract the build number
-echo "$versions" | while IFS= read -r line; do
-	num=$((num+1))
-	fetch_page=$(curl -s -H "User-Agent: $(get_random_user_agent)" "$line")
-	build=$(echo "$fetch_page" | rg 'class="colorLightBlack">([0-9]+)</span>' -o -r '$1' | head -n1)
-	# Extract version from URL instead of HTML to get the correct version for this specific release
-	version=$(echo "$line" | rg 'reddit-([0-9]+-[0-9]+-[0-9]+)-release' -o -r '$1' | sed 's/-/./g')
-	echo "	\"Version $version/Build $build\"," >> "$filename"
-	echo -e "[$num/$android_count] Fetched \e[32mVersion $version/Build $build\e[0m."
-	sleep 30
+echo "$table" | while IFS= read -r line; do
+  num=$((num+1))
+  echo "	\"$line\"," >> "$filename"
+  echo -e "\e[34m[$num/$ios_count] Fetched $line\e[0m."
 done
 
 # Close the array in the source file

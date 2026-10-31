@@ -1,20 +1,15 @@
 #![allow(clippy::cmp_owned)]
 
+use crate::body::Body;
 use crate::utils::{
-	catch_random, clean_url, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect, rewrite_urls, setting, template,
-	to_absolute_url, val, Post, Preferences, Subreddit,
+	build_rss_items, catch_random, clean_url, enable_rss, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect, rewrite_urls,
+	rss_page_link, rss_page_path, rss_response, setting, setting_or_default, should_be_nsfw_gated, template, val, Post, Preferences, Subreddit, RSS_LISTING_SORTS,
 };
-use crate::{client::json, server::RequestExt, server::ResponseExt};
-use crate::{config, utils};
+use crate::{backends::json, server::RequestExt, server::ResponseExt};
 use askama::Template;
 use cookie::Cookie;
-use htmlescape::decode_html;
-use hyper::{Body, Request, Response};
-
-use chrono::DateTime;
-use regex::Regex;
-use rss::{ChannelBuilder, Enclosure, Item};
-use std::sync::LazyLock;
+use hyper::{Request, Response};
+use rss::ChannelBuilder;
 use time::{Duration, OffsetDateTime};
 
 // STRUCTS
@@ -58,17 +53,15 @@ struct WallTemplate {
 	url: String,
 }
 
-static GEO_FILTER_MATCH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"geo_filter=(?<region>\w+)").unwrap());
-
 // SERVICES
 pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
+	let prefs = Preferences::new(&req);
 	// Build Reddit API path
 	let root = req.uri().path() == "/";
-	let query = req.uri().query().unwrap_or_default().to_string();
 	let subscribed = setting(&req, "subscriptions");
 	let front_page = setting(&req, "front_page");
 	let remove_default_feeds = setting(&req, "remove_default_feeds") == "on";
-	let post_sort = setting(&req, "post_sort");
+	let post_sort = setting_or_default(&req, "post_sort", "hot".to_string());
 	let sort = req.param("sort").unwrap_or_else(|| req.param("id").unwrap_or(post_sort));
 
 	let sub_name = req.param("sub").unwrap_or(if front_page == "default" || front_page.is_empty() {
@@ -128,17 +121,18 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 	let req_url = req.uri().to_string();
 	// Return landing page if this post if this is NSFW community but the user
 	// has disabled the display of NSFW content or if the instance is SFW-only.
-	if sub.nsfw && crate::utils::should_be_nsfw_gated(&req, &req_url) {
+	if sub.nsfw && should_be_nsfw_gated(&req, &req_url) {
 		return Ok(nsfw_landing(req, req_url).await.unwrap_or_default());
 	}
 
 	let mut params = String::from("&raw_json=1");
 	if sub_name == "popular" {
-		let geo_filter = match GEO_FILTER_MATCH.captures(&query) {
-			Some(geo_filter) => geo_filter["region"].to_string(),
-			None => "GLOBAL".to_owned(),
-		};
-		params.push_str(&format!("&geo_filter={geo_filter}"));
+		params.push_str(&format!("&geo_filter={}", prefs.geo_filter));
+	}
+
+	let posts_per_page: u32 = setting(&req, "posts_per_page").parse().unwrap_or(25).clamp(1, 100);
+	if posts_per_page != 25 {
+		params.push_str(&format!("&limit={}", posts_per_page));
 	}
 
 	let posts_per_page: u32 = setting(&req, "posts_per_page").parse().unwrap_or(25).clamp(1, 100);
@@ -162,7 +156,7 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 			posts: Vec::new(),
 			sort: (sort, param(&path, "t").unwrap_or_default()),
 			ends: (param(&path, "after").unwrap_or_default(), String::new()),
-			prefs: Preferences::new(&req),
+			prefs,
 			url,
 			redirect_url,
 			is_filtered: true,
@@ -174,15 +168,15 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 		match Post::fetch(&path, quarantined).await {
 			Ok((mut posts, after)) => {
 				let clean_urls = setting(&req, "clean_urls");
-				if clean_urls == "on" {
+				if clean_urls == "on".to_owned() {
 					posts.iter_mut().for_each(|post| post.media.url = clean_url(post.media.url.clone()));
 				}
 				let (_, all_posts_filtered) = filter_posts(&mut posts, &filters);
 				let no_posts = posts.is_empty();
 				let all_posts_hidden_nsfw = !no_posts && (posts.iter().all(|p| p.flags.nsfw) && setting(&req, "show_nsfw") != "on");
 				if sort == "new" {
-					posts.sort_by_key(|b| std::cmp::Reverse(b.created_ts));
-					posts.sort_by_key(|b| std::cmp::Reverse(b.flags.stickied));
+					posts.sort_by_key(|post| std::cmp::Reverse(post.created_ts));
+					posts.sort_by_key(|post| std::cmp::Reverse(post.flags.stickied));
 				}
 				Ok(template(&SubredditTemplate {
 					sub,
@@ -469,6 +463,15 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 	Ok(response)
 }
 
+fn wiki_html(response: &serde_json::Value, page: &str) -> String {
+	let missing = if page == "index" {
+		"<h3>This subreddit has no wiki pages</h3>"
+	} else {
+		"<h3>Wiki page not found</h3>"
+	};
+	rewrite_urls(response["data"]["content_html"].as_str().unwrap_or(missing))
+}
+
 pub async fn wiki(req: Request<Body>) -> Result<Response<Body>, String> {
 	let sub = req.param("sub").unwrap_or_else(|| "reddit.com".to_string());
 	let quarantined = can_access_quarantine(&req, &sub);
@@ -483,8 +486,8 @@ pub async fn wiki(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	match json(path, quarantined).await {
 		Ok(response) => Ok(template(&WikiTemplate {
+			wiki: wiki_html(&response, &page),
 			sub,
-			wiki: rewrite_urls(response["data"]["content_html"].as_str().unwrap_or("<h3>Wiki not found</h3>")),
 			page,
 			prefs: Preferences::new(&req),
 			url,
@@ -565,139 +568,98 @@ async fn subreddit(sub: &str, quarantined: bool) -> Result<Subreddit, String> {
 	})
 }
 
+/// Feed for a subreddit, multireddit or the front page, built from the JSON API.
+/// Mirrors Reddit's feed URLs: `/r/rust.rss`, `/r/rust/top.rss?t=year`, `/r/rust/comments.rss`, `/top.rss`.
 pub async fn rss(req: Request<Body>) -> Result<Response<Body>, String> {
-	if config::get_setting("REDLIB_ENABLE_RSS").is_none() {
+	if !enable_rss() {
 		return Ok(error(req, "RSS is disabled on this instance.").await.unwrap_or_default());
 	}
 
-	use hyper::header::CONTENT_TYPE;
+	// Front page feeds have no subreddit: the sort is the whole path (`/top.rss`)
+	let (sub, sort) = match req.param("sub") {
+		Some(sub) => (sub, req.param("sort")),
+		None => {
+			let front_page = setting(&req, "front_page");
+			let subscribed = setting(&req, "subscriptions");
+			let sub = if !front_page.is_empty() && front_page != "default" {
+				front_page
+			} else if !subscribed.is_empty() {
+				subscribed
+			} else {
+				"popular".to_string()
+			};
+			let sort = rss_page_path(&req).trim_start_matches('/').to_string();
+			(sub, Some(sort).filter(|s| !s.is_empty()))
+		}
+	};
+	let sort = sort.unwrap_or_else(|| Some(setting(&req, "post_sort")).filter(|s| !s.is_empty()).unwrap_or_else(|| "hot".to_string()));
+	if sort != "comments" && !RSS_LISTING_SORTS.contains(&sort.as_str()) {
+		return error(req, "Unknown feed sort").await;
+	}
 
-	// Get subreddit
-	let sub = req.param("sub").unwrap_or_default();
-	let post_sort = req.cookie("post_sort").map_or_else(|| "hot".to_string(), |c| c.value().to_string());
-	let sort = req.param("sort").unwrap_or_else(|| req.param("id").unwrap_or(post_sort));
+	// Only real subreddits have metadata; multireddits, r/all and r/popular don't
+	let subreddit = if sub.contains('+') || sub == "all" || sub == "popular" {
+		Subreddit {
+			name: sub.clone(),
+			title: format!("r/{sub}"),
+			..Subreddit::default()
+		}
+	} else {
+		subreddit(&sub, false).await?
+	};
+	if subreddit.nsfw && crate::utils::sfw_only() {
+		return error(req, "NSFW content is disabled on this instance.").await;
+	}
 
-	// Get path
-	let path = format!("/r/{sub}/{sort}.json?{}", req.uri().query().unwrap_or_default());
-
-	// Get subreddit link
-	let subreddit_link: String = format!("{}/r/{sub}", config::get_setting("REDLIB_FULL_URL").unwrap_or_default());
-
-	// Get subreddit data
-	let subreddit = subreddit(&sub, false).await?;
-
-	// Get posts
+	let mut params = String::from("&raw_json=1");
+	if sub == "popular" {
+		params.push_str(&format!("&geo_filter={}", Preferences::new(&req).geo_filter));
+	}
+	let path = format!("/r/{}/{sort}.json?{}{params}", sub.replace('+', "%2B"), req.uri().query().unwrap_or_default());
 	let (posts, _) = Post::fetch(&path, false).await?;
 
-	// Build the RSS feed
+	let title = match sort.as_str() {
+		"comments" => format!("Comments in {}", subreddit.title),
+		_ => subreddit.title.clone(),
+	};
 	let channel = ChannelBuilder::default()
-		.title(&subreddit.title)
+		.title(title)
 		.description(&subreddit.description)
-		.link(&subreddit_link)
-		.items(
-			posts
-				.into_iter()
-				.map(|post| {
-					let mut item = Item {
-						title: Some(post.title.to_string()),
-						link: Some(format_url(&utils::get_post_url(&post))),
-						author: Some(post.author.name.to_string()),
-						content: Some(rewrite_urls(&decode_html(&post.body).unwrap())),
-						pub_date: Some(DateTime::from_timestamp(post.created_ts as i64, 0).unwrap_or_default().to_rfc2822()),
-						description: Some(format!("<a href='{}'>Comments</a>", to_absolute_url(&post.permalink))),
-						..Default::default()
-					};
-
-					apply_enclosure(&mut item, &post);
-					item
-				})
-				.collect::<Vec<_>>(),
-		)
+		.link(rss_page_link(&req))
+		.items(build_rss_items(&posts))
 		.build();
 
-	// Serialize the feed to RSS
-	let body = channel.to_string().into_bytes();
-
-	// Create the HTTP response
-	let mut res = Response::new(Body::from(body));
-	res.headers_mut()
-		.insert(CONTENT_TYPE, hyper::header::HeaderValue::from_static("application/rss+xml"));
-
-	Ok(res)
-}
-
-// Set enclosure image for RSS feed item
-fn apply_enclosure(item: &mut Item, post: &Post) {
-	item.set_enclosure(get_rss_image(post));
-
-	// Embed the number of gallery images in description and content since
-	// only the first image in the gallery is used for the enclosure
-	if post.post_type == "gallery" && post.gallery.len() > 1 {
-		item.set_description(format!(
-			"<a href='{}'>Gallery with {} images</a>",
-			to_absolute_url(&post.permalink),
-			post.gallery.len()
-		));
-
-		if let Some(content) = item.content() {
-			let new_content = format!("{}<br/>{}", item.description().unwrap_or(""), content,);
-			item.set_content(new_content);
-		}
-	}
-}
-
-fn get_rss_image(post: &Post) -> Option<Enclosure> {
-	let image_url = match post.post_type.as_str() {
-		"image" => Some(post.media.url.clone()),
-		"gallery" => post.gallery.first().and_then(|media| decode_html(&media.url).ok()),
-		"gif" | "video" => decode_html(&post.media.poster).ok(),
-		_ => None,
-	};
-
-	image_url.map(|url| {
-		let mut enclosure = Enclosure::default();
-		enclosure.set_mime_type(get_mime_type(&url));
-		enclosure.set_url(to_absolute_url(&url));
-		enclosure.set_length("0");
-		enclosure
-	})
-}
-
-/// Determines the MIME type based on file extension in a URL.
-/// Handles both absolute and relative URLs with query parameters.
-fn get_mime_type(url: &str) -> &'static str {
-	// Extract the path component, removing query parameters
-	let path = url.split('?').next().unwrap_or(url);
-
-	// Get the file extension (everything after the last dot)
-	let extension = path.rsplit('.').next().unwrap_or("").to_lowercase();
-
-	// Match common image extensions
-	match extension.as_str() {
-		"jpg" | "jpeg" => "image/jpeg",
-		"png" => "image/png",
-		"gif" => "image/gif",
-		"webp" => "image/webp",
-		"svg" => "image/svg+xml",
-		_ => "application/octet-stream",
-	}
+	Ok(rss_response(&channel))
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_fetching_subreddit() {
-		let subreddit = subreddit("rust", false).await;
-		assert!(subreddit.is_ok());
+	#[test]
+	fn test_wiki_html() {
+		let missing = serde_json::json!({ "reason": "PAGE_NOT_CREATED" });
+		assert_eq!(wiki_html(&missing, "index"), "<h3>This subreddit has no wiki pages</h3>");
+		assert_eq!(wiki_html(&missing, "rules"), "<h3>Wiki page not found</h3>");
+		let page = serde_json::json!({ "data": { "content_html": "<p>hi</p>" } });
+		assert_eq!(wiki_html(&page, "index"), "<p>hi</p>");
 	}
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_gated_and_quarantined() {
-		let quarantined = subreddit("edgy", true).await;
-		assert!(quarantined.is_ok());
-		let gated = subreddit("drugs", true).await;
-		assert!(gated.is_ok());
+	#[test]
+	fn test_fetching_subreddit() {
+		crate::client::block_on_shared(async {
+			let subreddit = subreddit("rust", false).await;
+			assert!(subreddit.is_ok());
+		});
+	}
+
+	#[test]
+	fn test_gated_and_quarantined() {
+		crate::client::block_on_shared(async {
+			let quarantined = subreddit("edgy", true).await;
+			assert!(quarantined.is_ok());
+			let gated = subreddit("drugs", true).await;
+			assert!(gated.is_ok());
+		});
 	}
 }

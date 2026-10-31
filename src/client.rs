@@ -1,21 +1,26 @@
+use crate::body::Body;
+use crate::config::get_setting;
 use crate::dbg_msg;
-use crate::oauth::{force_refresh_token, token_daemon, Oauth, OauthBackendImpl};
+use crate::oauth::{token_daemon, Oauth};
 use crate::server::RequestExt;
-use crate::utils::{format_url, Post};
+use crate::utils::format_url;
 use arc_swap::ArcSwap;
 use cached::macros::cached;
 use futures_lite::future::block_on;
 use futures_lite::{future::Boxed, FutureExt};
-use hyper::{body::Buf, header, Body, Request as HyperRequest, Response as HyperResponse};
-use log::{error, info, trace, warn};
+use hyper::{header, Request as HyperRequest, Response as HyperResponse};
+use log::{info, warn};
 use percent_encoding::{percent_encode, CONTROLS};
-use serde_json::Value;
+use std::net::SocketAddr;
+use std::path::Path;
 use std::result::Result;
 use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicBool, AtomicU16};
-use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, AtomicUsize};
+use std::sync::{Arc, LazyLock};
+use std::time::{SystemTime, UNIX_EPOCH};
+use wreq::dns::{Addrs, GaiResolver, Name, Resolve, Resolving};
 use wreq::redirect::Policy;
-use wreq::{header as wreq_header, Client as WreqClient, IntoEmulation, Method, Response as WreqResponse};
+use wreq::{header as wreq_header, Client as WreqClient, Method, Response as WreqResponse};
 use wreq_util::{Emulation, Platform, Profile};
 
 const REDDIT_URL_BASE: &str = "https://oauth.reddit.com";
@@ -24,10 +29,34 @@ const REDDIT_URL_BASE_HOST: &str = "oauth.reddit.com";
 const REDDIT_SHORT_URL_BASE: &str = "https://redd.it";
 const REDDIT_SHORT_URL_BASE_HOST: &str = "redd.it";
 
-const ALTERNATIVE_REDDIT_URL_BASE: &str = "https://www.reddit.com";
+pub(crate) const ALTERNATIVE_REDDIT_URL_BASE: &str = "https://www.reddit.com";
 const ALTERNATIVE_REDDIT_URL_BASE_HOST: &str = "www.reddit.com";
 
-pub static CLIENT: LazyLock<WreqClient> = LazyLock::new(build_client);
+/// Configuration variable holding the `Cookie` header of a logged-in
+/// reddit.com session.
+const REDDIT_COOKIE_SETTING: &str = "REDLIB_REDDIT_COOKIE";
+
+/// File with more sessions, one per line, so they can change without a restart.
+const REDDIT_COOKIE_FILE_SETTING: &str = "REDLIB_REDDIT_COOKIE_FILE";
+
+/// How often the session file is checked for changes.
+const REDDIT_COOKIE_FILE_RECHECK_SECS: u64 = 10;
+
+/// Upper bound for the configured cookie. A browser sends a few kilobytes at
+/// most; anything larger is a configuration mistake.
+const REDDIT_COOKIE_MAX_LEN: usize = 8192;
+
+pub static CLIENT: LazyLock<ArcSwap<WreqClient>> = LazyLock::new(|| ArcSwap::from_pointee(build_client()));
+
+/// Runs `future` on one runtime shared by every test. `CLIENT` keeps its
+/// connections in a pool, and each connection lives on the runtime that opened
+/// it, so with a runtime per test, a test that finishes takes down
+/// connections other tests are still using.
+#[cfg(test)]
+pub(crate) fn block_on_shared<F: std::future::Future>(future: F) -> F::Output {
+	static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap());
+	RUNTIME.block_on(future)
+}
 
 pub static OAUTH_CLIENT: LazyLock<ArcSwap<Oauth>> = LazyLock::new(|| {
 	let client = block_on(Oauth::new());
@@ -37,6 +66,11 @@ pub static OAUTH_CLIENT: LazyLock<ArcSwap<Oauth>> = LazyLock::new(|| {
 
 pub static OAUTH_RATELIMIT_REMAINING: AtomicU16 = AtomicU16::new(99);
 
+/// Lower the local quota estimate by one, without ever wrapping below zero.
+pub fn burn_rate_limit_unit() {
+	OAUTH_RATELIMIT_REMAINING.try_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v.saturating_sub(1))).ok();
+}
+
 pub static OAUTH_IS_ROLLING_OVER: AtomicBool = AtomicBool::new(false);
 
 const URL_PAIRS: [(&str, &str); 2] = [
@@ -44,26 +78,383 @@ const URL_PAIRS: [(&str, &str); 2] = [
 	(REDDIT_SHORT_URL_BASE, REDDIT_SHORT_URL_BASE_HOST),
 ];
 
-pub fn build_client() -> WreqClient {
-	// Keeping this list short to aid in privacy.
-	// The more emulations, the more unique a fingerprint each instance has.
-	// But some emulations should increase evasiveness.
-	let emulation = [Profile::Chrome149, Profile::Firefox151];
-	let emulation_os = [Platform::Android, Platform::Windows];
+/// Draw weights. `REFUSED` is low but not 0, so a fingerprint Reddit
+/// unblocks gets picked up again.
+const SERVED: u32 = 20;
+const REFUSED: u32 = 1;
 
-	let rand = fastrand::usize(..);
-	let emulation = Emulation::builder()
-		.profile(emulation[rand % emulation.len()])
-		.platform(emulation_os[rand % emulation_os.len()])
-		.build()
-		.into_emulation();
+/// How long a fingerprint Reddit blocked at runtime is left out of the draw.
+const BLOCK_SECS: u64 = 6 * 60 * 60;
 
-	info!("Building Wreq client with random emulation {:?}", emulation);
+/// Reddit blocks anonymous JSON for Chrome 132+, Edge 135+ and Firefox 135+
+/// (probe, October 2026). No OkHttp: Reddit blocks most of it outright.
+const EMULATIONS: &[(Profile, &[Platform], u32)] = {
+	use Platform::*;
+	use Profile::*;
+	&[
+		(Chrome148, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Chrome147, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Chrome146, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Chrome145, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Chrome131, &[Windows, MacOS, Linux, Android], SERVED),
+		(Chrome130, &[Windows, MacOS, Linux, Android], SERVED),
+		(Chrome129, &[Windows, MacOS, Linux, Android], SERVED),
+		(Chrome128, &[Windows, MacOS, Linux, Android], SERVED),
+		(Chrome127, &[Windows, MacOS, Linux, Android], SERVED),
+		(Chrome126, &[Windows, MacOS, Linux, Android], SERVED),
+		(Chrome124, &[Windows, MacOS, Linux, Android], SERVED),
+		(Edge148, &[Windows, MacOS], REFUSED),
+		(Edge147, &[Windows, MacOS], REFUSED),
+		(Edge146, &[Windows, MacOS], REFUSED),
+		(Edge145, &[Windows, MacOS], REFUSED),
+		(Edge134, &[Windows, MacOS], SERVED),
+		(Edge131, &[Windows, MacOS], SERVED),
+		(Edge127, &[Windows, MacOS], SERVED),
+		(Edge122, &[Windows, MacOS], SERVED),
+		(Firefox151, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Firefox150, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Firefox149, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Firefox148, &[Windows, MacOS, Linux, Android], REFUSED),
+		(Firefox147, &[Windows, MacOS, Linux, Android], REFUSED),
+		// wreq-util has no macOS user agent for these two
+		(Firefox133, &[Windows, Linux, Android], SERVED),
+		(Firefox128, &[Windows, Linux], SERVED),
+		(FirefoxAndroid135, &[Android], SERVED),
+		(Safari26_4, &[MacOS], SERVED),
+		(Safari26_3, &[MacOS], SERVED),
+		(Safari26_2, &[MacOS], SERVED),
+		(Safari26_1, &[MacOS], SERVED),
+		(Safari26, &[MacOS], SERVED),
+		(Safari18_5, &[MacOS], SERVED),
+		(Safari18_3_1, &[MacOS], SERVED),
+		(Safari18_3, &[MacOS], SERVED),
+		(Safari18_2, &[MacOS], SERVED),
+		(Safari18, &[MacOS], SERVED),
+		(Safari17_6, &[MacOS], SERVED),
+		(Safari17_5, &[MacOS], SERVED),
+		(SafariIos26_2, &[IOS], SERVED),
+		(SafariIos26, &[IOS], SERVED),
+		(SafariIos18_1_1, &[IOS], SERVED),
+		(SafariIos17_4_1, &[IOS], SERVED),
+		(SafariIpad26_2, &[IOS], SERVED),
+		(SafariIPad26, &[IOS], SERVED),
+		(SafariIPad18, &[IOS], SERVED),
+		(Opera131, &[Windows, MacOS], SERVED),
+		(Opera130, &[Windows, MacOS], SERVED),
+		(Opera129, &[Windows, MacOS], SERVED),
+		(Opera128, &[Windows, MacOS], SERVED),
+		(Opera127, &[Windows, MacOS], SERVED),
+		(Opera126, &[Windows, MacOS], SERVED),
+		(Opera125, &[Windows, MacOS], SERVED),
+		(Opera124, &[Windows, MacOS], SERVED),
+	]
+};
+
+/// Known-good fingerprints for the tests, checked by `test_probe_fingerprints`.
+const TEST_EMULATIONS: &[(Profile, &[Platform], u32)] = {
+	use Platform::*;
+	use Profile::*;
+	&[
+		(Chrome131, &[Windows, Android], SERVED),
+		(Edge134, &[Windows], SERVED),
+		(Firefox133, &[Linux], SERVED),
+		(Safari26_4, &[MacOS], SERVED),
+		(Safari18_5, &[MacOS], SERVED),
+		(SafariIos26_2, &[IOS], SERVED),
+		(Opera131, &[Windows, MacOS], SERVED),
+	]
+};
+
+/// One browser emulation the client can use.
+struct Fingerprint {
+	profile: Profile,
+	platform: Platform,
+	weight: u32,
+	/// Unix time until which Reddit is taken to block it, 0 if it doesn't.
+	blocked_until: AtomicU64,
+}
+
+impl Fingerprint {
+	fn weight(&self, now: u64) -> u32 {
+		if self.blocked_until.load(Ordering::Relaxed) > now {
+			0
+		} else {
+			self.weight
+		}
+	}
+}
+
+fn flatten(table: &[(Profile, &[Platform], u32)]) -> Vec<Fingerprint> {
+	table
+		.iter()
+		.flat_map(|&(profile, platforms, weight)| {
+			platforms.iter().map(move |&platform| Fingerprint {
+				profile,
+				platform,
+				weight,
+				blocked_until: AtomicU64::new(0),
+			})
+		})
+		.collect()
+}
+
+static FINGERPRINTS: LazyLock<Vec<Fingerprint>> = LazyLock::new(|| flatten(if cfg!(test) { TEST_EMULATIONS } else { EMULATIONS }));
+
+/// Index into `FINGERPRINTS` of the emulation in use.
+static EMULATION: AtomicUsize = AtomicUsize::new(usize::MAX);
+
+/// Unix time of the last emulation switch, so a burst of blocked requests
+/// switches only once.
+static LAST_REROLL: AtomicU64 = AtomicU64::new(0);
+const REROLL_COOLDOWN_SECS: u64 = 60;
+
+fn now_secs() -> u64 {
+	SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
+/// A weighted random index other than `current`.
+fn pick(weights: &[u32], current: usize) -> usize {
+	let others = || weights.iter().enumerate().filter(|&(i, _)| i != current);
+	let total: u32 = others().map(|(_, w)| w).sum();
+	if total == 0 {
+		let count = others().count();
+		return others().nth(fastrand::usize(..count)).map_or(0, |(i, _)| i);
+	}
+	let mut draw = fastrand::u32(..total);
+	for (i, &weight) in others() {
+		if draw < weight {
+			return i;
+		}
+		draw -= weight;
+	}
+	unreachable!("the draw is below the total weight")
+}
+
+fn client_for(profile: Profile, platform: Platform) -> WreqClient {
 	WreqClient::builder()
-		.emulation(emulation)
+		.emulation(Emulation::builder().profile(profile).platform(platform).build())
 		.redirect(Policy::none())
+		.dns_resolver(RedgifsIpv4Resolver(GaiResolver::new()))
 		.build()
 		.expect("Should always be able to build a client")
+}
+
+/// Builds a client with another, weighted random browser emulation.
+pub fn build_client() -> WreqClient {
+	let now = now_secs();
+	let weights: Vec<u32> = FINGERPRINTS.iter().map(|f| f.weight(now)).collect();
+	let index = pick(&weights, EMULATION.load(Ordering::Relaxed));
+	EMULATION.store(index, Ordering::Relaxed);
+	let Fingerprint { profile, platform, .. } = FINGERPRINTS[index];
+	info!("Building Wreq client with random emulation {profile:?} on {platform:?}");
+	client_for(profile, platform)
+}
+
+/// The emulation `CLIENT` uses, for `fingerprint_blocked`.
+pub(crate) fn current_emulation() -> usize {
+	EMULATION.load(Ordering::Relaxed)
+}
+
+/// Reddit's fingerprint block page. Private or banned subs answer JSON 403s.
+pub(crate) fn is_fingerprint_block(status: u16, content_type: Option<&[u8]>, body: &[u8]) -> bool {
+	status == 403 && content_type.is_some_and(|v| v.starts_with(b"text/html")) && String::from_utf8_lossy(body).to_lowercase().contains("blocked by network security")
+}
+
+/// Leaves emulation `index` out for `BLOCK_SECS` and switches away from it,
+/// unless `CLIENT` already switched since the request went out.
+pub(crate) fn fingerprint_blocked(index: usize) {
+	let Some(fingerprint) = FINGERPRINTS.get(index) else {
+		return;
+	};
+	if current_emulation() != index {
+		return;
+	}
+	let now = now_secs();
+	if fingerprint.blocked_until.swap(now + BLOCK_SECS, Ordering::Relaxed) <= now {
+		info!(
+			"Reddit blocks anonymous JSON for {:?} on {:?}, leaving it out for {} hours",
+			fingerprint.profile,
+			fingerprint.platform,
+			BLOCK_SECS / 3600
+		);
+	}
+	reroll_client("Reddit blocked the browser emulation");
+}
+
+/// Set at startup when Redlib runs IPv6-only.
+pub static IPV6_ONLY: AtomicBool = AtomicBool::new(false);
+
+/// RedGifs binds its API token to the IP that fetched it, and a dual-stack host
+/// can connect over either IPv4 or IPv6. RedGifs hosts therefore resolve to IPv4
+/// only, unless Redlib runs IPv6-only or there is no IPv4 address.
+struct RedgifsIpv4Resolver(GaiResolver);
+
+impl Resolve for RedgifsIpv4Resolver {
+	fn resolve(&self, name: Name) -> Resolving {
+		let pin = !IPV6_ONLY.load(Ordering::Relaxed) && crate::redgifs::is_redgifs_domain(name.as_str());
+		let lookup = self.0.resolve(name);
+		Box::pin(async move {
+			let addrs = lookup.await?;
+			if !pin {
+				return Ok(addrs);
+			}
+			Ok(Box::new(prefer_ipv4(addrs.collect()).into_iter()) as Addrs)
+		})
+	}
+}
+
+fn prefer_ipv4(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
+	let v4: Vec<SocketAddr> = addrs.iter().copied().filter(SocketAddr::is_ipv4).collect();
+	if v4.is_empty() {
+		addrs
+	} else {
+		v4
+	}
+}
+
+/// Switches `CLIENT` to another browser emulation, at most once per
+/// `REROLL_COOLDOWN_SECS`, and logs `reason`. Returns whether it switched.
+pub(crate) fn reroll_client(reason: &str) -> bool {
+	let now = now_secs();
+	let last = LAST_REROLL.load(Ordering::Relaxed);
+	if now.saturating_sub(last) < REROLL_COOLDOWN_SECS || LAST_REROLL.compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed).is_err() {
+		return false;
+	}
+	warn!("{reason}, switching the browser emulation");
+	CLIENT.store(Arc::new(build_client()));
+	crate::redgifs::clear_token();
+	true
+}
+
+/// The `Cookie` headers of logged-in reddit.com sessions, from configuration.
+///
+/// Reddit stopped serving `.json` to logged-out clients: it answers with an
+/// HTML block page and HTTP 403. A real session cookie makes the same request
+/// return JSON, which is the only way to keep post and comment pages working.
+/// Several sessions are separated by `|` and used in turn, followed by those
+/// in the session file. Each comes with a label for the logs, which must never
+/// show the cookie itself.
+pub(crate) fn session_cookies() -> Vec<(String, String)> {
+	let from_setting = get_setting(REDDIT_COOKIE_SETTING)
+		.unwrap_or_default()
+		.split('|')
+		.enumerate()
+		.map(|(i, part)| (format!("#{}", i + 1), part.to_string()))
+		.collect::<Vec<_>>();
+	let from_file = get_setting(REDDIT_COOKIE_FILE_SETTING)
+		.map(|path| COOKIE_FILE.lock().map(|mut file| file.sessions(Path::new(&path), now_secs())).unwrap_or_default())
+		.unwrap_or_default();
+
+	let mut seen = std::collections::HashSet::new();
+	from_setting
+		.into_iter()
+		.chain(from_file)
+		.filter(|(_, part)| !part.trim().is_empty())
+		.filter_map(|(label, part)| match session_cookie(&part) {
+			Ok(cookie) => seen.insert(cookie.clone()).then_some((label, cookie)),
+			Err(reason) => {
+				warn_once(format!("Ignoring session {label}: {reason}"));
+				None
+			}
+		})
+		.collect()
+}
+
+static COOKIE_FILE: LazyLock<std::sync::Mutex<CookieFile>> = LazyLock::new(Default::default);
+
+/// The lines of the session file as last read, so a broken edit keeps the
+/// sessions that worked.
+#[derive(Default)]
+struct CookieFile {
+	checked: Option<u64>,
+	version: Option<(SystemTime, u64)>,
+	sessions: Vec<(String, String)>,
+}
+
+impl CookieFile {
+	fn sessions(&mut self, path: &Path, now: u64) -> Vec<(String, String)> {
+		if self.checked.is_none_or(|checked| now.saturating_sub(checked) >= REDDIT_COOKIE_FILE_RECHECK_SECS) {
+			self.checked = Some(now);
+			self.reload(path);
+		}
+		self.sessions.clone()
+	}
+
+	fn reload(&mut self, path: &Path) {
+		let version = std::fs::metadata(path).and_then(|meta| Ok((meta.modified()?, meta.len())));
+		if version.as_ref().ok() == self.version.as_ref() {
+			return;
+		}
+		match version.and_then(|version| Ok((version, std::fs::read_to_string(path)?))) {
+			Ok((version, text)) => {
+				self.version = Some(version);
+				self.sessions = cookie_file_lines(&text);
+				info!("Read {} session line(s) from {REDDIT_COOKIE_FILE_SETTING}", self.sessions.len());
+			}
+			Err(e) => warn_once(format!(
+				"Couldn't read {REDDIT_COOKIE_FILE_SETTING} ({e}), keeping the {} session line(s) read last",
+				self.sessions.len()
+			)),
+		}
+	}
+}
+
+/// The sessions in a session file: one per line, `#` starts a comment line.
+fn cookie_file_lines(text: &str) -> Vec<(String, String)> {
+	text
+		.lines()
+		.enumerate()
+		.map(|(i, line)| (format!("file line {}", i + 1), line.trim().to_string()))
+		.filter(|(_, line)| !line.is_empty() && !line.starts_with('#'))
+		.collect()
+}
+
+/// The `Cookie` header for a configured session, or why it can't be used.
+///
+/// Only `reddit_session` is needed, so a bare value is taken as one. An
+/// expired one is skipped before Reddit refuses it, since every refusal
+/// counts against the browser emulation.
+fn session_cookie(raw: &str) -> Result<String, &'static str> {
+	let cookie = sanitize_cookie(raw).ok_or("not a valid Cookie header")?;
+	let cookie = if cookie.contains('=') { cookie } else { format!("reddit_session={cookie}") };
+	let session = cookie
+		.split(';')
+		.find_map(|pair| pair.trim().strip_prefix("reddit_session="))
+		.ok_or("no reddit_session cookie")?;
+	if jwt_expiry(session).is_some_and(|expiry| expiry <= now_secs()) {
+		return Err("its reddit_session has expired");
+	}
+	Ok(cookie)
+}
+
+/// The `exp` claim of a JWT, if `token` is one.
+fn jwt_expiry(token: &str) -> Option<u64> {
+	use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+	let claims: serde_json::Value = serde_json::from_slice(&URL_SAFE_NO_PAD.decode(token.split('.').nth(1)?).ok()?).ok()?;
+	claims["exp"].as_f64().map(|exp| exp as u64)
+}
+
+/// Logs `message` the first time only: the sessions are read on every request.
+fn warn_once(message: String) {
+	static SEEN: LazyLock<std::sync::Mutex<std::collections::HashSet<String>>> = LazyLock::new(Default::default);
+	if SEEN.lock().is_ok_and(|mut seen| seen.insert(message.clone())) {
+		warn!("{message}");
+	}
+}
+
+/// Trims and validates a `Cookie` header from configuration.
+///
+/// The value goes into a single header line, so control characters (which could
+/// end the line and inject another header) and non-ASCII bytes are rejected
+/// rather than forwarded to Reddit.
+fn sanitize_cookie(raw: &str) -> Option<String> {
+	let cookie = raw.trim();
+
+	if cookie.is_empty() || cookie.len() > REDDIT_COOKIE_MAX_LEN || !cookie.is_ascii() || cookie.chars().any(char::is_control) {
+		return None;
+	}
+
+	Some(cookie.to_string())
 }
 
 /// Gets the canonical path for a resource on Reddit. This is accomplished by
@@ -165,7 +556,7 @@ pub async fn proxy(req: HyperRequest<Body>, format: &str) -> Result<HyperRespons
 	// First parameter is target URL (mandatory).
 	let wreq_uri = wreq::Uri::try_from(url).map_err(|_| "Couldn't parse URL".to_string())?;
 
-	let mut builder = CLIENT.get(wreq_uri);
+	let mut builder = CLIENT.load_full().get(wreq_uri);
 
 	// Copy useful headers from original request
 	for &key in &["Range", "If-Modified-Since", "Cache-Control"] {
@@ -211,7 +602,7 @@ pub async fn proxy(req: HyperRequest<Body>, format: &str) -> Result<HyperRespons
 
 /// Makes a GET request to Reddit at `path`. By default, this will honor HTTP
 /// 3xx codes Reddit returns and will automatically redirect.
-fn reddit_get(path: String, quarantine: bool) -> Boxed<Result<WreqResponse, String>> {
+pub(crate) fn reddit_get(path: String, quarantine: bool) -> Boxed<Result<WreqResponse, String>> {
 	request(&Method::GET, path, true, quarantine, REDDIT_URL_BASE, REDDIT_URL_BASE_HOST)
 }
 
@@ -256,7 +647,7 @@ fn request(
 	// shuffle headers: https://github.com/redlib-org/redlib/issues/324
 	fastrand::shuffle(&mut headers);
 
-	let mut builder = CLIENT.request(method.clone(), &url);
+	let mut builder = CLIENT.load_full().request(method.clone(), &url);
 
 	for (key, value) in headers {
 		builder = builder.header(key, value);
@@ -319,179 +710,7 @@ fn request(
 	.boxed()
 }
 
-/// Make a request to a Reddit API and parse the JSON response
-#[cached(max_size = 100, ttl_secs = 30)]
-pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
-	// Closure to quickly build errors
-	let err = |msg: &str, e: String, path: String| -> Result<Value, String> {
-		// eprintln!("{} - {}: {}", url, msg, e);
-		Err(format!("{msg}: {e} | {path}"))
-	};
-
-	// First, handle rolling over the OAUTH_CLIENT if need be.
-	let current_rate_limit = OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst);
-	let is_rolling_over = OAUTH_IS_ROLLING_OVER.load(Ordering::SeqCst);
-	if current_rate_limit < 10 && !is_rolling_over {
-		warn!("Rate limit {current_rate_limit} is low. Spawning force_refresh_token()");
-		tokio::spawn(force_refresh_token());
-	}
-	OAUTH_RATELIMIT_REMAINING.fetch_sub(1, Ordering::SeqCst);
-
-	// Fetch the url...
-	match reddit_get(path.clone(), quarantine).await {
-		Ok(response) => {
-			let status = response.status();
-
-			let reset: Option<String> = if let (Some(remaining), Some(reset), Some(used)) = (
-				response
-					.headers()
-					.get("x-ratelimit-remaining")
-					.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
-				response
-					.headers()
-					.get("x-ratelimit-reset")
-					.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
-				response
-					.headers()
-					.get("x-ratelimit-used")
-					.and_then(|val| val.to_str().ok().map(|s| s.to_string())),
-			) {
-				trace!(
-					"Ratelimit remaining: Header says {remaining}, we have {current_rate_limit}. Resets in {reset}. Rollover: {}. Ratelimit used: {used}",
-					if is_rolling_over { "yes" } else { "no" },
-				);
-
-				// If can parse remaining as a float, round to a u16 and save
-				if let Ok(val) = remaining.parse::<f32>() {
-					OAUTH_RATELIMIT_REMAINING.store(val.round() as u16, Ordering::SeqCst);
-				}
-
-				Some(reset)
-			} else {
-				None
-			};
-
-			// asynchronously aggregate the chunks of the body
-			match hyper::body::aggregate(response.into_hyper_response()).await {
-				Ok(body) => {
-					let has_remaining = body.has_remaining();
-
-					if !has_remaining {
-						// Rate limited, so spawn a force_refresh_token()
-						tokio::spawn(force_refresh_token());
-						return match reset {
-							Some(val) => Err(format!(
-								"Reddit rate limit exceeded. Try refreshing in a few seconds.\
-								 Rate limit will reset in: {val}"
-							)),
-							None => Err("Reddit rate limit exceeded".to_string()),
-						};
-					}
-
-					// Parse the response from Reddit as JSON
-					match serde_json::from_reader(body.reader()) {
-						Ok(value) => {
-							let json: Value = value;
-
-							// If user is suspended
-							if let Some(data) = json.get("data") {
-								if let Some(is_suspended) = data.get("is_suspended").and_then(Value::as_bool) {
-									if is_suspended {
-										return Err("suspended".into());
-									}
-								}
-							}
-
-							// If Reddit returned an error
-							if json["error"].is_i64() {
-								// OAuth token has expired; http status 401
-								if json["message"] == "Unauthorized" {
-									error!("Forcing a token refresh");
-									let () = force_refresh_token().await;
-									return Err("OAuth token has expired. Please refresh the page!".to_string());
-								}
-
-								// Handle quarantined
-								if json["reason"] == "quarantined" {
-									return Err("quarantined".into());
-								}
-								// Handle gated
-								if json["reason"] == "gated" {
-									return Err("gated".into());
-								}
-								// Handle private subs
-								if json["reason"] == "private" {
-									return Err("private".into());
-								}
-								// Handle banned subs
-								if json["reason"] == "banned" {
-									return Err("banned".into());
-								}
-
-								Err(format!("Reddit error {} \"{}\": {} | {path}", json["error"], json["reason"], json["message"]))
-							} else {
-								Ok(json)
-							}
-						}
-						Err(e) => {
-							error!("Got an invalid response from reddit {e}. Status code: {status}");
-							if status.is_server_error() {
-								Err("Reddit is having issues, check if there's an outage".to_string())
-							} else {
-								err("Failed to parse page JSON data", e.to_string(), path)
-							}
-						}
-					}
-				}
-				Err(e) => err("Failed receiving body from Reddit", e.to_string(), path),
-			}
-		}
-		Err(e) => err("Couldn't send request to Reddit", e, path),
-	}
-}
-
-async fn self_check(sub: &str) -> Result<(), String> {
-	let query = format!("/r/{sub}/hot.json?&raw_json=1");
-
-	match Post::fetch(&query, true).await {
-		Ok(_) => Ok(()),
-		Err(e) => Err(e),
-	}
-}
-
-pub async fn rate_limit_check() -> Result<(), String> {
-	// First, test the Oauth client: we can perform a rate limit check if the OAuth backend is MobileSpoof; if GenericWeb, we skip the check.
-	if matches!(OAUTH_CLIENT.load().backend, OauthBackendImpl::GenericWeb(_)) {
-		warn!("[⚠️] Cannot perform rate limit check, running as GenericWeb. Skipping check.");
-		return Ok(());
-	}
-
-	// First, check a subreddit.
-	self_check("reddit").await?;
-	// This will reduce the rate limit to 99. Assert this check.
-	if OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst) != 99 {
-		return Err(format!(
-			"Rate limit check 1 failed: expected 99, got {}",
-			OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)
-		));
-	}
-	// Now, we switch out the OAuth client.
-	// This checks for the IP rate limit association.
-	force_refresh_token().await;
-	// Now, check a new sub to break cache.
-	self_check("rust").await?;
-	// Again, assert the rate limit check.
-	if OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst) != 99 {
-		return Err(format!(
-			"Rate limit check 2 failed: expected 99, got {}",
-			OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst)
-		));
-	}
-
-	Ok(())
-}
-
-trait IntoHyperResponse {
+pub(crate) trait IntoHyperResponse {
 	fn into_hyper_response(self) -> HyperResponse<Body>;
 }
 
@@ -516,7 +735,7 @@ impl IntoHyperResponse for WreqResponse {
 			);
 		}
 
-		builder.body(Body::wrap_stream(self.bytes_stream())).unwrap()
+		builder.body(Body::from_stream(self.bytes_stream())).unwrap()
 	}
 }
 
@@ -525,11 +744,359 @@ mod tests {
 	use super::*;
 	use {crate::config::get_setting, sealed_test::prelude::*};
 
-	const POPULAR_URL: &str = "/r/popular/hot.json?&raw_json=1&geo_filter=GLOBAL";
+	#[test]
+	fn test_prefer_ipv4_keeps_ipv6_without_ipv4() {
+		let v4: SocketAddr = "104.18.36.123:443".parse().unwrap();
+		let v6: SocketAddr = "[2606:4700:440a::ac40:9785]:443".parse().unwrap();
+		assert_eq!(prefer_ipv4(vec![v6, v4]), vec![v4]);
+		assert_eq!(prefer_ipv4(vec![v6]), vec![v6]);
+	}
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_rate_limit_check() {
-		rate_limit_check().await.unwrap();
+	#[test]
+	fn test_cookie_is_trimmed_and_kept_intact() {
+		assert_eq!(
+			sanitize_cookie("  reddit_session=abc; token_v2=def; over18=1\n").as_deref(),
+			Some("reddit_session=abc; token_v2=def; over18=1")
+		);
+	}
+
+	#[test]
+	fn test_empty_cookie_is_not_a_cookie() {
+		assert_eq!(sanitize_cookie(""), None);
+		assert_eq!(sanitize_cookie("   \n\t "), None);
+	}
+
+	#[test]
+	fn test_cookie_cannot_inject_headers() {
+		// A newline in the value would let it add headers to the request. A
+		// trailing newline alone is harmless and trimmed, so test a second line.
+		assert_eq!(sanitize_cookie("reddit_session=abc\r\nX-Injected: yes"), None);
+		assert_eq!(sanitize_cookie("reddit_session=abc\nSet-Cookie: evil=1"), None);
+		assert_eq!(sanitize_cookie("reddit_session=abc\u{0}"), None);
+		// Header values are ASCII: non-ASCII bytes are not valid there.
+		assert_eq!(sanitize_cookie("reddit_session=ábc"), None);
+	}
+
+	#[test]
+	fn test_overlong_cookie_is_rejected() {
+		let cookie = format!("reddit_session={}", "a".repeat(REDDIT_COOKIE_MAX_LEN));
+		assert_eq!(sanitize_cookie(&cookie), None);
+	}
+
+	#[test]
+	#[sealed_test(env = [("REDLIB_REDDIT_COOKIE", "reddit_session=abc; token_v2=def")])]
+	fn test_session_cookie_comes_from_the_environment() {
+		assert_eq!(session_cookies(), vec![("#1".to_string(), "reddit_session=abc; token_v2=def".to_string())]);
+	}
+
+	#[test]
+	#[sealed_test(env = [("REDLIB_REDDIT_COOKIE", "reddit_session=a; token_v2=b | reddit_session=c\u{1}| |reddit_session=d")])]
+	fn test_several_session_cookies_are_split_and_numbered() {
+		// The invalid second session is dropped, the empty one skipped, and the
+		// numbers keep pointing at the position in the setting.
+		assert_eq!(
+			session_cookies(),
+			vec![
+				("#1".to_string(), "reddit_session=a; token_v2=b".to_string()),
+				("#4".to_string(), "reddit_session=d".to_string())
+			]
+		);
+	}
+
+	fn jwt(exp: u64) -> String {
+		use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+		format!("eyJhbGciOiJSUzI1NiJ9.{}.sig", URL_SAFE_NO_PAD.encode(format!("{{\"exp\":{exp}}}")))
+	}
+
+	#[test]
+	fn test_session_cookie_needs_only_reddit_session() {
+		assert_eq!(session_cookie(" abc ").as_deref(), Ok("reddit_session=abc"));
+		assert_eq!(session_cookie("reddit_session=abc").as_deref(), Ok("reddit_session=abc"));
+		assert_eq!(session_cookie("token_v2=abc"), Err("no reddit_session cookie"));
+	}
+
+	#[test]
+	fn test_sessions_in_the_old_documented_form_still_work() {
+		// `reddit_session=...;token_v2=...` as the old docs asked for, with a
+		// long expired token_v2: sent exactly as before
+		let old = format!("reddit_session={};token_v2={}", jwt(now_secs() + 3600), jwt(1000));
+		assert_eq!(session_cookie(&format!(" {old} ")), Ok(old));
+	}
+
+	#[test]
+	#[sealed_test]
+	fn test_old_session_setting_keeps_every_session() {
+		let old = |n: u64| format!("reddit_session={};token_v2={}", jwt(now_secs() + n), jwt(1000));
+		std::env::set_var("REDLIB_REDDIT_COOKIE", format!("{} | {}|{}", old(1000), old(2000), old(3000)));
+		assert_eq!(
+			session_cookies(),
+			vec![("#1".to_string(), old(1000)), ("#2".to_string(), old(2000)), ("#3".to_string(), old(3000))]
+		);
+	}
+
+	#[test]
+	fn test_expired_session_cookie_is_skipped() {
+		let valid = jwt(now_secs() + 3600);
+		assert_eq!(session_cookie(&valid), Ok(format!("reddit_session={valid}")));
+		assert_eq!(
+			session_cookie(&format!("token_v2=x; reddit_session={}", jwt(now_secs() - 1))),
+			Err("its reddit_session has expired")
+		);
+		// Older sessions aren't JWTs; Reddit decides about those
+		assert!(session_cookie("reddit_session=123%2C2024-01-01T00%3A00%3A00%2Cabc").is_ok());
+	}
+
+	#[test]
+	fn test_session_file_skips_comments_and_blank_lines() {
+		let text = "# Account 1\nreddit_session=a\n\n  # Account 2\n  b  \n";
+		assert_eq!(
+			cookie_file_lines(text),
+			vec![("file line 2".to_string(), "reddit_session=a".to_string()), ("file line 5".to_string(), "b".to_string())]
+		);
+	}
+
+	#[test]
+	fn test_session_file_is_reread_when_it_changes() {
+		let dir = std::env::temp_dir().join(format!("redlib-sessions-{}", std::process::id()));
+		std::fs::create_dir_all(&dir).unwrap();
+		let path = dir.join("sessions.txt");
+		let mut file = CookieFile::default();
+		let names = |sessions: Vec<(String, String)>| sessions.into_iter().map(|(_, cookie)| cookie).collect::<Vec<_>>();
+
+		std::fs::write(&path, "a\n").unwrap();
+		assert_eq!(names(file.sessions(&path, 100)), ["a"]);
+		// Not checked again before the interval is up
+		std::fs::write(&path, "a\nb\n").unwrap();
+		assert_eq!(names(file.sessions(&path, 105)), ["a"]);
+		assert_eq!(names(file.sessions(&path, 110)), ["a", "b"]);
+		// A file that went missing keeps the sessions read last
+		std::fs::remove_file(&path).unwrap();
+		assert_eq!(names(file.sessions(&path, 120)), ["a", "b"]);
+		std::fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	#[sealed_test]
+	fn test_sessions_come_from_the_setting_and_the_file() {
+		std::fs::write("sessions.txt", "# throwaway\nreddit_session=b\nreddit_session=a\n").unwrap();
+		std::env::set_var("REDLIB_REDDIT_COOKIE", "reddit_session=a");
+		std::env::set_var("REDLIB_REDDIT_COOKIE_FILE", "sessions.txt");
+		// The duplicate in the file is dropped
+		assert_eq!(
+			session_cookies(),
+			vec![
+				("#1".to_string(), "reddit_session=a".to_string()),
+				("file line 2".to_string(), "reddit_session=b".to_string())
+			]
+		);
+	}
+
+	#[test]
+	#[sealed_test]
+	fn test_session_cookie_is_optional() {
+		// CI sets one for the live tests
+		std::env::remove_var("REDLIB_REDDIT_COOKIE");
+		assert!(session_cookies().is_empty());
+	}
+
+	#[test]
+	#[sealed_test]
+	fn test_new_client_never_reuses_the_current_emulation() {
+		for _ in 0..200 {
+			let before = EMULATION.load(Ordering::Relaxed);
+			build_client();
+			assert_ne!(EMULATION.load(Ordering::Relaxed), before);
+		}
+	}
+
+	#[test]
+	#[sealed_test]
+	fn test_reroll_waits_for_the_cooldown() {
+		assert!(reroll_client("test"));
+		assert!(!reroll_client("test"));
+		LAST_REROLL.store(LAST_REROLL.load(Ordering::Relaxed) - REROLL_COOLDOWN_SECS, Ordering::Relaxed);
+		assert!(reroll_client("test"));
+	}
+
+	#[test]
+	fn test_pick_skips_the_current_and_zero_weights() {
+		for _ in 0..200 {
+			assert_eq!(pick(&[0, 5, 0, 5], 1), 3);
+			assert_ne!(pick(&[5, 5, 5], 0), 0);
+		}
+	}
+
+	#[test]
+	fn test_pick_falls_back_to_any_other_when_all_are_blocked() {
+		for _ in 0..200 {
+			assert_ne!(pick(&[0, 0, 0], 2), 2);
+		}
+	}
+
+	#[test]
+	fn test_pick_follows_the_weights() {
+		let picks = (0..10_000).filter(|_| pick(&[SERVED, REFUSED, 0], 2) == 1).count();
+		assert!((300..700).contains(&picks), "{picks}");
+	}
+
+	#[test]
+	#[sealed_test]
+	fn test_blocked_fingerprint_is_not_picked_until_it_expires() {
+		build_client();
+		let blocked = current_emulation();
+		fingerprint_blocked(blocked);
+		assert_ne!(current_emulation(), blocked, "switched away from it");
+		let now = now_secs();
+		assert_eq!(FINGERPRINTS[blocked].weight(now), 0);
+		for _ in 0..200 {
+			build_client();
+			assert_ne!(current_emulation(), blocked);
+		}
+
+		assert_eq!(FINGERPRINTS[blocked].weight(now + BLOCK_SECS + 1), SERVED);
+		FINGERPRINTS[blocked].blocked_until.store(now - 1, Ordering::Relaxed);
+		assert!((0..1000).any(|_| {
+			build_client();
+			current_emulation() == blocked
+		}));
+	}
+
+	#[test]
+	#[sealed_test]
+	fn test_block_of_a_previous_emulation_is_ignored() {
+		build_client();
+		let previous = current_emulation();
+		build_client();
+		fingerprint_blocked(previous);
+		assert_eq!(FINGERPRINTS[previous].weight(now_secs()), SERVED);
+	}
+
+	#[test]
+	fn test_fingerprint_block_page_is_told_from_json_403s() {
+		let html = Some(&b"text/html; charset=utf-8"[..]);
+		let page = b"<!DOCTYPE html><html><body>You've been blocked by network security.</body></html>";
+		assert!(is_fingerprint_block(403, html, page));
+		// a private subreddit
+		let private = br#"{"reason": "private", "message": "Forbidden", "error": 403}"#;
+		assert!(!is_fingerprint_block(403, Some(b"application/json; charset=UTF-8"), private));
+		assert!(!is_fingerprint_block(403, html, b"<html>Forbidden</html>"));
+		assert!(!is_fingerprint_block(200, html, page));
+	}
+
+	#[test]
+	fn test_emulation_tables() {
+		let pairs = |table| flatten(table).into_iter().map(|f| (format!("{:?}", f.profile), format!("{:?}", f.platform), f.weight));
+		let all: Vec<_> = pairs(EMULATIONS).collect();
+		assert!(all.iter().all(|(profile, ..)| !profile.starts_with("OkHttp")));
+		let unique: std::collections::HashSet<_> = all.iter().map(|(profile, platform, _)| (profile, platform)).collect();
+		assert_eq!(unique.len(), all.len(), "duplicate pairs");
+		for (profile, platform, weight) in pairs(TEST_EMULATIONS) {
+			assert_eq!(weight, SERVED);
+			assert!(
+				all.contains(&(profile.clone(), platform.clone(), SERVED)),
+				"{profile} on {platform} isn't SERVED in EMULATIONS"
+			);
+		}
+	}
+
+	/// What Reddit answers one fingerprint: token, listing and GraphQL query.
+	async fn probe(profile: Profile, platform: Platform) -> (String, String, String) {
+		let pause = || tokio::time::sleep(std::time::Duration::from_millis(300));
+		let client = client_for(profile, platform);
+		let headers = match crate::oauth::android_headers(&client).await {
+			Ok(headers) => headers,
+			Err(e) => return (format!("failed: {}", e.chars().take(60).collect::<String>()), "-".into(), "-".into()),
+		};
+		pause().await;
+
+		let mut builder = client.get(format!("{REDDIT_URL_BASE}/r/rust/hot.json?raw_json=1&limit=1"));
+		for (key, value) in &headers {
+			builder = builder.header(key, value);
+		}
+		let json = match builder.send().await {
+			Ok(res) => {
+				let status = res.status().as_u16();
+				let content_type = res.headers().get(wreq_header::CONTENT_TYPE).map(|v| v.as_bytes().to_vec());
+				let body = res.bytes().await.unwrap_or_default();
+				if is_fingerprint_block(status, content_type.as_deref(), &body) {
+					"blocked".to_string()
+				} else if serde_json::from_slice::<serde_json::Value>(&body).is_ok_and(|v| v["kind"] == "Listing") {
+					"ok".to_string()
+				} else {
+					format!("{status}")
+				}
+			}
+			Err(e) => format!("failed: {e}"),
+		};
+		pause().await;
+
+		let body = serde_json::json!({
+			"operationName": "SubredditInfoByName",
+			"variables": { "subredditName": "rust", "filterGated": true, "includeDevvitData": false, "includeRecapFields": false, "includeWelcomePage": false },
+			"extensions": { "persistedQuery": { "version": 1, "sha256Hash": crate::backends::gql::SUBREDDIT_INFO_HASH } },
+		});
+		let mut builder = client
+			.post(crate::backends::gql::GQL_URL)
+			.header("X-APOLLO-OPERATION-NAME", "SubredditInfoByName")
+			.header("X-APOLLO-OPERATION-ID", crate::backends::gql::SUBREDDIT_INFO_HASH);
+		for (key, value) in headers.iter().filter(|(key, _)| !key.eq_ignore_ascii_case("content-type")) {
+			builder = builder.header(key, value);
+		}
+		let gql = match builder.json(&body).send().await {
+			Ok(res) => {
+				let status = res.status().as_u16();
+				match res.json::<serde_json::Value>().await {
+					Ok(v) if !v["data"]["subredditInfoByName"].is_null() => "ok".to_string(),
+					_ => format!("{status}"),
+				}
+			}
+			Err(e) => format!("failed: {e}"),
+		};
+		pause().await;
+		("ok".into(), json, gql)
+	}
+
+	/// Fails when a fingerprint the tests use is blocked.
+	#[test]
+	#[ignore = "live: probes every fingerprint, run with --ignored"]
+	fn test_probe_fingerprints() {
+		use std::fmt::Write;
+		let tested: Vec<(String, String)> = flatten(TEST_EMULATIONS).iter().map(|f| (format!("{:?}", f.profile), format!("{:?}", f.platform))).collect();
+		let mut table = String::from("| profile | platform | weight | token | json | gql | tests |\n|---|---|---|---|---|---|---|\n");
+		let mut broken = Vec::new();
+		let mut surprises = Vec::new();
+		block_on_shared(async {
+			for fingerprint in flatten(EMULATIONS) {
+				let (profile, platform) = (format!("{:?}", fingerprint.profile), format!("{:?}", fingerprint.platform));
+				let (token, json, gql) = probe(fingerprint.profile, fingerprint.platform).await;
+				let weight = if fingerprint.weight == SERVED { "served" } else { "refused" };
+				let in_tests = tested.contains(&(profile.clone(), platform.clone()));
+				let row = format!("| {profile} | {platform} | {weight} | {token} | {json} | {gql} | {} |", if in_tests { "yes" } else { "" });
+				println!("{row}");
+				writeln!(table, "{row}").unwrap();
+				if in_tests && json != "ok" {
+					broken.push(format!("{profile} on {platform}"));
+				}
+				// a failed token or request says nothing about the weight
+				if (json == "ok" || json == "blocked") && (fingerprint.weight == SERVED) != (json == "ok") {
+					surprises.push(format!("{profile} on {platform} ({weight}, json {json})"));
+				}
+			}
+		});
+		let mut summary = format!("## Fingerprints\n\n{table}\n");
+		if !surprises.is_empty() {
+			writeln!(summary, "Weight doesn't match the answer: {}\n", surprises.join(", ")).unwrap();
+		}
+		if !broken.is_empty() {
+			writeln!(summary, "**Used by the tests but not served:** {}\n", broken.join(", ")).unwrap();
+		}
+		println!("{summary}");
+		if let Ok(path) = std::env::var("GITHUB_STEP_SUMMARY") {
+			use std::io::Write as _;
+			let mut file = std::fs::OpenOptions::new().append(true).create(true).open(path).unwrap();
+			file.write_all(summary.as_bytes()).unwrap();
+		}
+		assert!(broken.is_empty(), "the tests use fingerprints Reddit blocks: {}", broken.join(", "));
 	}
 
 	#[test]
@@ -538,45 +1105,67 @@ mod tests {
 		tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
 			let subscriptions = get_setting("REDLIB_DEFAULT_SUBSCRIPTIONS");
 			assert!(subscriptions.is_some());
-
-			// check rate limit
-			rate_limit_check().await.unwrap();
 		});
 	}
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_localization_popular() {
-		let val = json(POPULAR_URL.to_string(), false).await.unwrap();
-		assert_eq!("GLOBAL", val["data"]["geo_filter"].as_str().unwrap());
+	#[test]
+	fn test_obfuscated_share_link() {
+		crate::client::block_on_shared(async {
+			let share_link = "/r/rust/s/kPgq8WNHRK".into();
+			// Correct link without share parameters
+			let canonical_link = "/r/rust/comments/18t5968/why_use_tuple_struct_over_standard_struct/kfbqlbc/".into();
+			assert_eq!(canonical_path(share_link, 3).await, Ok(Some(canonical_link)));
+		});
 	}
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_obfuscated_share_link() {
-		let share_link = "/r/rust/s/kPgq8WNHRK".into();
-		// Correct link without share parameters
-		let canonical_link = "/r/rust/comments/18t5968/why_use_tuple_struct_over_standard_struct/kfbqlbc/".into();
-		assert_eq!(canonical_path(share_link, 3).await, Ok(Some(canonical_link)));
+	#[test]
+	#[sealed_test]
+	fn test_rate_limit_counter_decrements_one_unit() {
+		OAUTH_RATELIMIT_REMAINING.store(50, Ordering::SeqCst);
+		burn_rate_limit_unit();
+		assert_eq!(OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst), 49);
 	}
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_private_sub() {
-		let link = json("/r/suicide/about.json?raw_json=1".into(), true).await;
-		assert!(link.is_err());
-		assert_eq!(link, Err("private".into()));
+	#[test]
+	#[sealed_test]
+	fn test_rate_limit_counter_saturates_at_zero() {
+		OAUTH_RATELIMIT_REMAINING.store(0, Ordering::SeqCst);
+		for _ in 0..100 {
+			burn_rate_limit_unit();
+		}
+		assert_eq!(OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst), 0);
 	}
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_banned_sub() {
-		let link = json("/r/aaa/about.json?raw_json=1".into(), true).await;
-		assert!(link.is_err());
-		assert_eq!(link, Err("banned".into()));
+	#[test]
+	#[sealed_test]
+	fn test_rate_limit_burst_across_zero_arms_rollover_guard() {
+		// json() triggers a token rollover when it reads `current_rate_limit < 10`.
+		// A burst crossing zero must leave the counter below that threshold.
+		OAUTH_RATELIMIT_REMAINING.store(5, Ordering::SeqCst);
+		for _ in 0..10 {
+			burn_rate_limit_unit();
+		}
+		assert!(OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst) < 10);
 	}
 
-	#[tokio::test(flavor = "multi_thread")]
-	async fn test_gated_sub() {
-		// quarantine to false to specifically catch when we _don't_ catch it
-		let link = json("/r/drugs/about.json?raw_json=1".into(), false).await;
-		assert!(link.is_err());
-		assert_eq!(link, Err("gated".into()));
+	#[test]
+	#[sealed_test]
+	fn test_rate_limit_concurrent_bursts_never_wrap() {
+		OAUTH_RATELIMIT_REMAINING.store(2, Ordering::SeqCst);
+		let handles: Vec<_> = (0..8)
+			.map(|_| {
+				std::thread::spawn(|| {
+					let mut max_seen = 0u16;
+					for _ in 0..500 {
+						burn_rate_limit_unit();
+						max_seen = max_seen.max(OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst));
+					}
+					max_seen
+				})
+			})
+			.collect();
+		let max_seen = handles.into_iter().map(|h| h.join().unwrap()).max().unwrap();
+		assert!(max_seen <= 2, "counter wrapped: observed {max_seen}");
+		assert_eq!(OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst), 0);
 	}
 }

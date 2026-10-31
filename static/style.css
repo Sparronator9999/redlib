@@ -130,6 +130,11 @@ input {
 	word-wrap: anywhere;
 }
 
+html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--highlighted) var(--background);
+}
+
 body {
 	background: var(--background);
 	font-size: 15px;
@@ -355,9 +360,14 @@ main {
 	-webkit-flex: 1;
 	flex: 1;
 }
+@media screen and (max-width: 800px) {
+    #column_one {
+        max-width: unset;
+    }
+}
 
 /* Instance info footer. */
-#instance_info {
+#instance_footer {
 	display: -webkit-flex;
 	display: flex;
 	-webkit-justify-content: center;
@@ -367,6 +377,11 @@ main {
 	width: 100%;
 	background: var(--post);
 	opacity: 0.8;
+}
+
+#source svg {
+	vertical-align: -2px;
+	margin-right: 0.3em;
 }
 
 /* / Instance info footer. */
@@ -390,6 +405,10 @@ button {
 	background: none;
 	border: none;
 	font-weight: bold;
+	cursor: pointer;
+}
+
+summary {
 	cursor: pointer;
 }
 
@@ -448,6 +467,12 @@ aside {
 	border-radius: 5px;
 	overflow: hidden;
 	width: 100%;
+}
+@media screen and (min-width: 800px) {
+    #subreddit,
+    #sidebar {
+        min-width: 350px;
+    }
 }
 
 #sub_meta {
@@ -587,6 +612,15 @@ aside {
 	background-color: var(--highlighted);
 }
 
+.subscribe:hover,
+.unsubscribe:hover,
+.filter:hover,
+.unfilter:hover,
+.copy:hover,
+.import:hover {
+	text-decoration: underline;
+}
+
 /* Feeds */
 
 #feeds {
@@ -601,8 +635,8 @@ aside {
 }
 
 #feeds > summary {
-	cursor: pointer;
 	padding: 8px 15px;
+	cursor: pointer;
 }
 
 #feed_list {
@@ -697,7 +731,9 @@ select {
 	cursor: pointer;
 }
 
-#search > * { font-size: 15px; }
+#search > * {
+	font-size: 15px;
+}
 
 select,
 input[type="search"],
@@ -735,8 +771,12 @@ input[type="search"] {
 	flex: 1;
 }
 @media screen and (max-width: 800px) {
-	input[type="search"] { width: 0; }
-	#comment_search{ width: unset; }
+	input[type="search"] {
+		width: 0;
+	}
+	#comment_search {
+		width: unset;
+	}
 }
 
 #inside {
@@ -782,7 +822,60 @@ button.submit:hover > svg {
 	border-radius: 0;
 }
 
-#sort_options + #timeframe:not(#search_sort > #timeframe) {
+button,
+input[type="submit"],
+input[type="checkbox"],
+input[type="radio"],
+summary,
+#inside label {
+	cursor: pointer;
+}
+
+#search_sort select,
+#sort select,
+#sort_submit,
+#inside {
+	transition: 0.2s background;
+}
+
+#search_sort select:hover,
+#search_sort select:focus-visible,
+#sort select:hover,
+#sort select:focus-visible,
+#sort_submit:hover,
+#sort_submit:focus-visible,
+#inside:hover,
+#inside:focus-within {
+	background: var(--foreground);
+	text-decoration: underline;
+	outline: none;
+}
+
+#search_sort:focus-within,
+#sort:has(.commentQuery):focus-within {
+	outline: 2px solid var(--accent);
+}
+
+#search_sort :focus-visible,
+#sort:has(.commentQuery) :focus-visible {
+	outline: none;
+}
+
+#sort:has(.commentQuery) {
+	border-radius: 5px;
+}
+
+#search_sort #inside {
+	max-width: none;
+}
+
+#sort_submit {
+	flex: 0 0 auto;
+	min-width: 45px;
+	justify-content: center;
+}
+
+#sort_options + #timeframe:not(#search_sort #timeframe) {
 	border-radius: 5px 0px 0px 5px;
 }
 
@@ -844,6 +937,11 @@ button.submit:hover > svg {
 
 .search_widget_divider_box > #sort_options {
 	border-radius: 0;
+}
+
+/* Only the search field rounds its corners, so every focus outline matches */
+#search_sort select {
+    border-radius: 0;
 }
 
 /* When screen size is smaller than 480px we switch to a design better suited for mobile devices */
@@ -915,6 +1013,103 @@ button.submit:hover > svg {
 	background: var(--foreground);
 }
 
+/* Search tabs: one row that scrolls sideways on narrow screens */
+#listing_options.search_tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: auto;
+    max-width: 100%;
+    margin: 10px 0 20px 0;
+    white-space: nowrap;
+    scrollbar-width: none;
+    /* Scroll shadows without JS: the `local` covers move with the tabs and
+       hide the `scroll` shadows once an edge is reached */
+    --scroll-shadow: color-mix(in srgb, var(--text) 40%, transparent);
+    background:
+        linear-gradient(to right, var(--outside) 40%, transparent) left / 50px 100% no-repeat local,
+        linear-gradient(to left, var(--outside) 40%, transparent) right / 50px 100% no-repeat local,
+        linear-gradient(to right, var(--scroll-shadow), transparent) left / 20px 100% no-repeat scroll,
+        linear-gradient(to left, var(--scroll-shadow), transparent) right / 20px 100% no-repeat scroll,
+        var(--outside);
+}
+
+#listing_options.search_tabs::-webkit-scrollbar {
+    display: none;
+}
+
+#listing_options.search_tabs > a {
+    flex: 1 0 auto;
+    text-align: center;
+}
+
+.media_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+}
+
+.media_tile {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 5px;
+    background: var(--post);
+}
+
+.media_tile img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.media_tile:hover img {
+    filter: brightness(1.1);
+}
+
+.media_tile:hover .media_sub {
+    text-decoration: underline;
+}
+
+.media_tile.post_blurred img {
+    filter: blur(1.5rem);
+}
+
+.media_badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.media_sub {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 14px 8px 6px;
+    font-size: 12px;
+    color: #fff;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}
+
+/* Keeps the scroll position on the results, not the link, when more are added */
+.search_more {
+    overflow-anchor: none;
+}
+
+.search_results_comments .comment {
+    margin-bottom: 10px;
+}
+
 #search_subreddits {
 	border-radius: 5px;
 	background: var(--post);
@@ -953,6 +1148,10 @@ button.submit:hover > svg {
 a.search_subreddit:hover {
 	text-decoration: none;
 	background: var(--foreground);
+}
+
+a.search_subreddit:hover .search_subreddit_name {
+    text-decoration: underline;
 }
 
 .search_subreddit:not(:last-child) {
@@ -1181,7 +1380,7 @@ a.search_subreddit:hover {
 .post_blurred .post_media_content:has(~ .post_body:hover) *,
 .post_blurred .post_body:hover,
 .post_blurred .post_thumbnail:hover * {
-	filter: none;
+    filter: none;
 }
 
 .post_media_image svg {
@@ -1350,6 +1549,14 @@ a.search_subreddit:hover {
 	margin-right: 15px;
 }
 
+#post_links li.download_gallery {
+	display: none;
+}
+
+.js-enabled #post_links li.download_gallery {
+	display: list-item;
+}
+
 .post_thumbnail {
 	border-radius: 5px;
 	border: var(--panel-border);
@@ -1491,6 +1698,19 @@ a.search_subreddit:hover {
 	-webkit-flex: 1 1;
 	flex: 1 1;
 	min-width: 0;
+	position: relative;
+}
+
+.comment_right[open] > .comment_data > .comment_collapse {
+	position: absolute; /* relative to .comment_right */
+	width: 20px;
+	left: -35px;
+	top: 45px;
+	height: calc(100% - 45px);
+}
+
+.comment:has(> .comment_right[open] > .comment_data > .comment_collapse:hover) > .comment_left * {
+	background: var(--highlighted);
 }
 
 .comment:has([id]) .comment_data > * {
@@ -1733,18 +1953,22 @@ a.search_subreddit:hover {
 }
 
 .prefs select,
-.prefs input[type="number"] {
+.prefs input[type="number"]  {
 	border-radius: 5px;
 	margin-left: 20px;
 	background: var(--foreground);
 }
 
-.prefs input[type="number"] {
-	max-width: 80px;
+.prefs select {
+	max-width: 50%;
 }
 
 aside.prefs {
 	margin-top: 20px;
+}
+
+#save:focus {
+    outline: 2px solid var(--accent);
 }
 
 #save {
@@ -1782,28 +2006,22 @@ input[type="submit"] {
 	width: 250px;
 	background: var(--highlighted);
 }
-/* Info page */
-.unset {
-	color: lightslategrey;
-}
-
 /* Markdown */
 
 .md {
 	width: 100%;
 }
 
-.md > p:not(:first-child) {
-	margin-top: 20px;
+.md > :first-child {
+	margin-top: 0;
 }
 
-.md > figure:first-of-type {
-	margin-top: 5px;
-	margin-bottom: 0px;
+.md > :last-child {
+	margin-bottom: 0;
 }
 
-.md > figure:not(:first-of-type) {
-	margin-top: 10px;
+.md > * {
+	margin-bottom: 1.25rem;
 }
 
 .md h1 {
@@ -1823,6 +2041,15 @@ input[type="submit"] {
 }
 .md h6 {
 	font-size: 12px;
+}
+
+.md h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 1.25rem 0 0.75rem;
 }
 
 .md blockquote {
@@ -1863,7 +2090,6 @@ input[type="submit"] {
 .md pre {
 	background: var(--outside);
 	padding: 20px;
-	margin-top: 10px;
 	border-radius: 5px;
 	box-shadow: var(--shadow);
 	overflow: auto;
@@ -1883,6 +2109,37 @@ input[type="submit"] {
 
 .md code:not(.md pre > code) {
 	background: var(--highlighted);
+	border-radius: 3px;
+	padding: 0 3px;
+}
+
+/* Syntax highlighting: hues mixed with the theme's text colour, so they keep
+   their contrast in light and dark themes */
+.hl-comment {
+	color: color-mix(in srgb, var(--text) 55%, transparent);
+	font-style: italic;
+}
+.hl-keyword,
+.hl-storage {
+	color: color-mix(in srgb, #c678dd 75%, var(--text));
+}
+.hl-keyword.hl-operator {
+	color: inherit;
+}
+.hl-string {
+	color: color-mix(in srgb, #98c379 75%, var(--text));
+}
+.hl-constant {
+	color: color-mix(in srgb, #d19a66 75%, var(--text));
+}
+.hl-entity.hl-name.hl-function,
+.hl-support.hl-function {
+	color: color-mix(in srgb, #61afef 75%, var(--text));
+}
+.hl-entity.hl-name.hl-type,
+.hl-entity.hl-name.hl-class,
+.hl-support.hl-type {
+	color: color-mix(in srgb, #e5c07b 75%, var(--text));
 }
 
 /* Tables */
@@ -1916,14 +2173,69 @@ th {
 #error {
 	text-align: center;
 }
+#error {
+    max-width: 700px;
+    margin: 40px auto;
+}
 #error h1 {
 	margin-bottom: 10px;
 }
-#error h3 {
+#error .error_detail {
 	opacity: 0.85;
+}
+#error .error_url {
+	margin: 20px 0;
+	padding: 10px;
+	border-radius: 5px;
+	background: var(--foreground);
+	font-size: 13px;
+	text-align: left;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+#error .error_links {
+	opacity: 0.85;
+}
+#error #random-instance:not(:empty)::before {
+	content: " · ";
+	color: var(--text);
+}
+/* Red second footer row when the instance is behind its source repository */
+body > footer.has_update {
+	flex-direction: column;
+}
+.update_footer {
+	width: 100%;
+	padding: 0 10px;
+	box-sizing: border-box;
+	background: var(--accent);
+	color: white;
+	text-align: center;
+}
+.update_footer[hidden] {
+	display: none;
+}
+body.update_footer_shown {
+	padding-bottom: calc(2 * var(--footer-height));
 }
 #error a {
 	color: var(--accent);
+}
+
+/* Instance info: every table as wide as the widest one; the score explanation doesn't widen them */
+#instance_info {
+	display: inline-block;
+}
+
+#instance_info table {
+	width: 100%;
+}
+
+#instance_info details {
+	width: 0;
+	min-width: 100%;
+	margin: 15px 0;
+	text-align: left;
 }
 
 /* Messages */
@@ -1977,8 +2289,12 @@ th {
 /* Mobile */
 
 @media screen and (max-width: 800px) {
-	#column_one { max-width: unset; }
-	input[type="search"] { width: 0; }
+	#column_one {
+		max-width: unset;
+	}
+	input[type="search"] {
+		width: 0;
+	}
 
 	main {
 		-webkit-flex-direction: column-reverse;
@@ -2030,7 +2346,9 @@ th {
 		margin: 0;
 		max-width: 100%;
 	}
-	#user { margin: 0 0 20px; }
+	#user {
+		margin: 0 0 20px;
+	}
 
 	#sidebar {
 		margin: 20px 0;
@@ -2056,10 +2374,6 @@ th {
 }
 
 @media screen and (max-width: 507px) {
-	#version {
-		display: none;
-	}
-
 	.post {
 		grid-template:
 			"post_header post_header post_thumbnail" auto
@@ -2112,6 +2426,14 @@ th {
 	.comment_left {
 		-webkit-min-logical-width: -webkit-fit-content;
 		min-width: unset;
+	}
+
+	.comment_right[open] > .comment_data > .comment_collapse {
+		/* relative to .comment_right */
+		width: 15px;
+		left: -29px;
+		top: 35px;
+		height: calc(100% - 35px);
 	}
 
 	.line {

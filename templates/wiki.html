@@ -2,8 +2,8 @@
 {% import "utils.html" as utils %}
 
 {% block title %}
-	{% if sub != "" %}{{ page }} - {{ sub }}
-	{% else %}Redlib{% endif %}
+    {% if sub != "" %}{{ page }} - {{ sub }}
+    {% else %}Redlib{% endif %}
 {% endblock %}
 
 {% block search %}
@@ -15,15 +15,15 @@
 {% endblock %}
 
 {% block body %}
-	<main>
-		<div class="panel" id="column_one">
-			<div id="top">
-				<a href="/r/{{ sub }}">Posts</a>
-				<div>Wiki</div>
-			</div>
-			<div id="wiki">
-				{{ wiki|safe }}
-			</div>
-		</div>
-	</main>
+    <main>
+        <div class="panel" id="column_one">
+            <div id="top">
+                <a href="/r/{{ sub }}">Posts</a>
+                <div>Wiki</div>
+            </div>
+            <div id="wiki">
+                {{ wiki|safe }}
+            </div>
+        </div>
+    </main>
 {% endblock %}
