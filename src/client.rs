@@ -68,9 +68,8 @@ pub static OAUTH_RATELIMIT_REMAINING: AtomicU16 = AtomicU16::new(99);
 
 /// Lower the local quota estimate by one, without ever wrapping below zero.
 pub fn burn_rate_limit_unit() {
-	OAUTH_RATELIMIT_REMAINING
-		.try_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v.saturating_sub(1)))
-		.ok();
+	#[allow(deprecated)] // try_update is newer than the project's MSRV.
+	let _ = OAUTH_RATELIMIT_REMAINING.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| remaining.checked_sub(1));
 }
 
 pub static OAUTH_IS_ROLLING_OVER: AtomicBool = AtomicBool::new(false);
