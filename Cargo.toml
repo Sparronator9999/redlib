@@ -9,7 +9,7 @@ authors = [
     "spikecodes <19519553+spikecodes@users.noreply.github.com>",
 ]
 edition = "2021"
-rust-version = "1.98"
+rust-version = "1.92"
 default-run = "redlib"
 
 [dependencies]
@@ -63,8 +63,8 @@ bincode = "1.3.3"
 base2048 = "2.0.2"
 revision = "0.30.0"
 fake_user_agent = "0.2.3"
-wreq = { version = "0.16", features = ["brotli", "gzip", "deflate", "zstd", "json", "stream", "socks", "cookies"] }
-wreq-util = { version = "0.2" }
+wreq = { version = "6.0.0-rc.29", features = ["brotli", "gzip", "deflate", "zstd", "json", "stream", "socks", "cookies"] }
+wreq-util = { version = "3.0.0-rc.12" }
 scraper = { version = "0.29.0", default-features = false }
 clearurls = "0.0.4"
 obscura = { git = "https://github.com/h4ckf0r0day/obscura", rev = "3285fbc2357a60aa3a8dcce9fda95a155099fc42", features = ["stealth"], optional = true }

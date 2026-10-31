@@ -92,7 +92,6 @@ const EMULATIONS: &[(Profile, &[Platform], u32)] = {
 	use Platform::*;
 	use Profile::*;
 	&[
-		(Chrome149, &[Windows, MacOS, Linux, Android], REFUSED),
 		(Chrome148, &[Windows, MacOS, Linux, Android], REFUSED),
 		(Chrome147, &[Windows, MacOS, Linux, Android], REFUSED),
 		(Chrome146, &[Windows, MacOS, Linux, Android], REFUSED),
