@@ -633,7 +633,6 @@ pub struct Subreddit {
 	pub title: String,
 	pub description: String,
 	pub info: String,
-	// pub moderators: Vec<String>,
 	pub icon: String,
 	pub members: (String, String),
 	pub active: (String, String),
