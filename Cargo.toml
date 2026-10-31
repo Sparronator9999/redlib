@@ -42,7 +42,6 @@ time = { version = "0.3.55", features = ["local-offset"] }
 url = "2.5.8"
 rust-embed = { version = "8.13.0", features = ["include-exclude"] }
 libflate = "2.3.2"
-brotli = { version = "9.1.1", features = ["std"] }
 toml = "1.1.8"
 build_html = "2.8.0"
 uuid = { version = "1.29.0", features = ["v4"] }
