@@ -17,6 +17,7 @@ mod live_tests;
 pub mod obscura;
 mod score;
 pub mod scraped;
+pub mod stale;
 
 use crate::config::get_setting;
 use crate::oauth::force_refresh_token;
@@ -297,10 +298,22 @@ fn cursor_owner(path: &str) -> Option<&'static str> {
 }
 
 /// Fetches `path` from the first backend that serves it, and names that backend.
-#[cached(max_size = 100, ttl_secs = 30)]
+/// When Reddit refuses or fails, the last good response is served instead.
 pub async fn fetch(path: String, quarantine: bool) -> Result<(Value, &'static str), String> {
+	match fetch_fresh(path.clone(), quarantine).await {
+		Ok(found) => Ok(found),
+		Err((msg, true)) => stale::load(&path, quarantine).ok_or(msg),
+		Err((msg, false)) => Err(msg),
+	}
+}
+
+/// `fetch` without the stale fallback; the error says whether Reddit failed
+/// (blocked, rate limited, down) rather than answered.
+#[cached(max_size = 100, ttl_secs = 30)]
+async fn fetch_fresh(path: String, quarantine: bool) -> Result<(Value, &'static str), (String, bool)> {
 	let kind = Kind::of(&path);
 	let mut blocked = false;
+	let mut failed = false;
 	let mut last_error = None;
 
 	let backends: Order = match cursor_owner(&path).filter(|_| kind == Kind::Comments) {
@@ -313,27 +326,35 @@ pub async fn fetch(path: String, quarantine: bool) -> Result<(Value, &'static st
 			ranking(kind).record(backend.name(), outcome, Instant::now());
 		}
 		let error = match result {
-			Ok(json) => return Ok((json, backend.name())),
+			Ok(json) => {
+				stale::store(&path, quarantine, &json, backend.name());
+				return Ok((json, backend.name()));
+			}
 			Err(Failure::Unsupported) => {
 				debug!("{} can't serve {path}", backend.name());
 				continue;
 			}
 			Err(Failure::Final(msg)) if quarantine && backend.logged_in() && (msg == "quarantined" || msg == "gated") => msg,
-			Err(Failure::Final(msg)) => return Err(msg),
+			Err(Failure::Final(msg)) => return Err((msg, false)),
 			Err(Failure::Blocked) => {
 				blocked = true;
+				failed = true;
 				"blocked".to_string()
 			}
-			Err(Failure::RateLimited(msg) | Failure::Network(msg) | Failure::Invalid(msg)) => msg,
+			Err(Failure::RateLimited(msg) | Failure::Network(msg) | Failure::Invalid(msg)) => {
+				failed = true;
+				msg
+			}
 		};
 		warn!("{} {} failed for {path}: {error}", kind.name(), backend.name());
 		last_error = Some(error);
 	}
 
-	Err(match last_error {
+	let msg = match last_error {
 		Some(error) if !blocked => error,
 		_ => blocked_error(&path),
-	})
+	};
+	Err((msg, failed))
 }
 
 /// Turns the errors Reddit reports inside a JSON body into failures.

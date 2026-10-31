@@ -155,6 +155,12 @@ pub struct Config {
 	#[serde(skip_serializing)]
 	pub(crate) reddit_cookie_file: Option<String>,
 
+	#[serde(rename = "REDLIB_STALE_CACHE_MB")]
+	pub(crate) stale_cache_mb: Option<String>,
+
+	#[serde(rename = "REDLIB_STALE_CACHE_MAX_AGE")]
+	pub(crate) stale_cache_max_age: Option<String>,
+
 	/// Listener settings; `main` reads them, `/info` doesn't show them.
 	#[serde(rename = "REDLIB_LISTEN_PORT")]
 	#[serde(skip_serializing)]
@@ -284,6 +290,8 @@ impl Config {
 			default_max_comment_thread_depth: parse("REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH"),
 			reddit_cookie: parse("REDLIB_REDDIT_COOKIE"),
 			reddit_cookie_file: parse("REDLIB_REDDIT_COOKIE_FILE"),
+			stale_cache_mb: parse("REDLIB_STALE_CACHE_MB"),
+			stale_cache_max_age: parse("REDLIB_STALE_CACHE_MAX_AGE"),
 			port: parse("REDLIB_LISTEN_PORT"),
 			address: parse("REDLIB_LISTEN_ADDRESS"),
 			hsts: parse("REDLIB_HSTS"),
@@ -342,6 +350,8 @@ fn get_setting_from_config(name: &str, config: &Config) -> Option<String> {
 		"REDLIB_DEFAULT_MAX_COMMENT_THREAD_DEPTH" => config.default_max_comment_thread_depth.clone(),
 		"REDLIB_REDDIT_COOKIE" => config.reddit_cookie.clone(),
 		"REDLIB_REDDIT_COOKIE_FILE" => config.reddit_cookie_file.clone(),
+		"REDLIB_STALE_CACHE_MB" => config.stale_cache_mb.clone(),
+		"REDLIB_STALE_CACHE_MAX_AGE" => config.stale_cache_max_age.clone(),
 		"REDLIB_LISTEN_PORT" => config.port.clone(),
 		"REDLIB_LISTEN_ADDRESS" => config.address.clone(),
 		"REDLIB_HSTS" => config.hsts.clone(),

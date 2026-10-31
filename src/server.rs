@@ -294,7 +294,7 @@ impl Server {
 					// Run the route's function
 					let func = (found.handler().to_owned().to_owned())(parammed);
 					async move {
-						match func.await {
+						match crate::backends::stale::track(func).await {
 							Ok(mut res) => {
 								res.headers_mut().extend(def_headers);
 								if is_head {

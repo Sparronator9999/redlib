@@ -2218,6 +2218,23 @@ body > footer.has_update {
 body.update_footer_shown {
 	padding-bottom: calc(2 * var(--footer-height));
 }
+/* Same bar at the top while a page is served from the stale cache */
+.stale_banner {
+	width: 100%;
+	min-height: var(--footer-height);
+	padding: 6px 10px;
+	line-height: 18px;
+	box-sizing: border-box;
+	background: var(--accent);
+	color: white;
+	text-align: center;
+}
+/* Stands in for the fixed navbar while the bar shows */
+.top_bars.sticky {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+}
 #error a {
 	color: var(--accent);
 }
